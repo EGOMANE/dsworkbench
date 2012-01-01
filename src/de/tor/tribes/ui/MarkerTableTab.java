@@ -21,8 +21,6 @@ import de.tor.tribes.ui.renderer.VisibilityCellRenderer;
 import de.tor.tribes.util.Constants;
 import de.tor.tribes.util.ImageUtils;
 import de.tor.tribes.util.JOptionPaneHelper;
-import de.tor.tribes.util.PluginManager;
-import de.tor.tribes.util.bb.MarkerListFormatter;
 import de.tor.tribes.util.mark.MarkerManager;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -37,11 +35,8 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.GeneralPath;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
@@ -76,7 +71,7 @@ public class MarkerTableTab extends javax.swing.JPanel implements ListSelectionL
 
     public static enum TRANSFER_TYPE {
 
-        CLIPBOARD_PLAIN, CLIPBOARD_BB, CUT_TO_INTERNAL_CLIPBOARD, COPY_TO_INTERNAL_CLIPBOARD, FROM_EXTERNAL_CLIPBOARD
+        CLIPBOARD_PLAIN, CLIPBOARD_BB, CUT_TO_INTERNAL_CLIPBOARD, COPY_TO_INTERNAL_CLIPBOARD, FROM_INTERNAL_CLIPBOARD
     }
     private String sMarkerSet = null;
     private final static JXTable jxMarkerTable = new JXTable();
@@ -126,17 +121,14 @@ public class MarkerTableTab extends javax.swing.JPanel implements ListSelectionL
         initComponents();
         jScrollPane1.setViewportView(jxMarkerTable);
         if (!KEY_LISTENER_ADDED) {
-            KeyStroke bbCopy = KeyStroke.getKeyStroke(KeyEvent.VK_B, ActionEvent.CTRL_MASK, false);
-            KeyStroke copy = KeyStroke.getKeyStroke(KeyEvent.VK_C, ActionEvent.CTRL_MASK, false);
-            KeyStroke cut = KeyStroke.getKeyStroke(KeyEvent.VK_X, ActionEvent.CTRL_MASK, false);
+            // KeyStroke copy = KeyStroke.getKeyStroke(KeyEvent.VK_C, ActionEvent.CTRL_MASK, false);
             KeyStroke paste = KeyStroke.getKeyStroke(KeyEvent.VK_V, ActionEvent.CTRL_MASK, false);
+            KeyStroke cut = KeyStroke.getKeyStroke(KeyEvent.VK_X, ActionEvent.CTRL_MASK, false);
             KeyStroke delete = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0, false);
-            jxMarkerTable.registerKeyboardAction(pActionListener, "Cut", copy, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-            jxMarkerTable.registerKeyboardAction(pActionListener, "Cut", cut, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-            jxMarkerTable.registerKeyboardAction(pActionListener, "BBCopy", bbCopy, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-            jxMarkerTable.registerKeyboardAction(pActionListener, "Paste", paste, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+            //   jxMarkerTable.registerKeyboardAction(pActionListener, "Copy", copy, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+           // jxMarkerTable.registerKeyboardAction(pActionListener, "Cut", cut, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+          //  jxMarkerTable.registerKeyboardAction(pActionListener, "Paste", paste, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
             jxMarkerTable.registerKeyboardAction(pActionListener, "Delete", delete, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-
             jxMarkerTable.getActionMap().put("find", new AbstractAction() {
 
                 @Override
@@ -318,24 +310,25 @@ public class MarkerTableTab extends javax.swing.JPanel implements ListSelectionL
 
     public void transferSelection(TRANSFER_TYPE pType) {
         switch (pType) {
-            case CUT_TO_INTERNAL_CLIPBOARD:
-                cutToClipboard();
+            case COPY_TO_INTERNAL_CLIPBOARD:
+                copyToInternalClipboard();
                 break;
-            case FROM_EXTERNAL_CLIPBOARD:
-                pasteFromExternalClipboard();
+            case CUT_TO_INTERNAL_CLIPBOARD:
+                cutToInternalClipboard();
+                break;
+            case FROM_INTERNAL_CLIPBOARD:
+                copyFromInternalClipboard();
+                break;
+            case CLIPBOARD_PLAIN:
                 break;
             case CLIPBOARD_BB:
-                copyBBToExternalClipboardEvent();
+
                 break;
         }
     }
 
     private boolean copyToInternalClipboard() {
         List<Marker> selection = getSelectedMarkers();
-        if (selection.isEmpty()) {
-            showInfo("Keine Markierung gewählt");
-            return false;
-        }
         StringBuilder b = new StringBuilder();
         int cnt = 0;
         for (Marker a : selection) {
@@ -348,46 +341,17 @@ public class MarkerTableTab extends javax.swing.JPanel implements ListSelectionL
             return true;
         } catch (HeadlessException hex) {
             showError("Fehler beim Kopieren der Markierungen");
-            return false;
         }
+        return false;
     }
 
-    private void cutToClipboard() {
+    private void cutToInternalClipboard() {
         int size = getSelectedMarkers().size();
-        if (size == 0) {
-            showInfo("Keine Markierung gewählt");
-            return;
-        }
         if (copyToInternalClipboard() && deleteSelection(false)) {
             showSuccess(size + ((size == 1) ? " Markierung ausgeschnitten" : " Markierungen ausgeschnitten"));
         } else {
             showError("Fehler beim Ausschneiden der Markierungen");
         }
-    }
-
-    private void pasteFromExternalClipboard() {
-        try {
-            String data = (String) Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null).getTransferData(DataFlavor.stringFlavor);
-            List<Marker> markers = PluginManager.getSingleton().executeDiplomacyParser(data);
-            if (markers.isEmpty()) {
-                //do internal paste
-                copyFromInternalClipboard();
-                return;
-            }
-            for (Marker m : markers) {
-                MarkerManager.getSingleton().addManagedElement(getMarkerSet(), m);
-            }
-
-            showSuccess(markers.size() + ((markers.size() == 1) ? " Markierung eingefügt" : " Markierungen eingefügt"));
-        } catch (UnsupportedFlavorException ufe) {
-            logger.error("Failed to paste markers from external clipboard", ufe);
-            showError("Fehler beim Lesen der Markierungen aus der Zwischenablage");
-        } catch (IOException ioe) {
-            logger.error("Failed to paste markers from external clipboard", ioe);
-            showError("Fehler beim Lesen der Markierungen aus der Zwischenablage");
-        }
-        markerModel.fireTableDataChanged();
-        MarkerManager.getSingleton().revalidate(getMarkerSet(), true);
     }
 
     private void copyFromInternalClipboard() {
@@ -396,71 +360,35 @@ public class MarkerTableTab extends javax.swing.JPanel implements ListSelectionL
 
             String[] lines = data.split("\n");
             int cnt = 0;
+            int existCount = 0;
+            MarkerManager.getSingleton().invalidate();
             for (String line : lines) {
-                Marker a = Marker.fromInternalRepresentation(line);
-                if (a != null) {
-                    MarkerManager.getSingleton().addManagedElement(getMarkerSet(), a);
+                Marker m = Marker.fromInternalRepresentation(line);
+                Marker existingMarker = null;
+                if (m != null && m.getMarkerType() == Marker.ALLY_MARKER_TYPE) {
+                    existingMarker = MarkerManager.getSingleton().getMarker(m.getView().getAlly());
+                } else if (m != null && m.getMarkerType() == Marker.TRIBE_MARKER_TYPE) {
+                    existingMarker = MarkerManager.getSingleton().getMarker(m.getView().getTribe());
+                }
+
+                if (m != null && existingMarker == null) {
+                    MarkerManager.getSingleton().addManagedElement(getMarkerSet(), m);
                     cnt++;
+                } else if (existingMarker != null) {
+                    existCount++;
                 }
             }
+
             showSuccess(cnt + ((cnt == 1) ? " Markierung eingefügt" : " Markierungen eingefügt"));
         } catch (UnsupportedFlavorException ufe) {
             logger.error("Failed to copy markers from internal clipboard", ufe);
             showError("Fehler beim Einfügen der Markierungen");
         } catch (IOException ioe) {
-            logger.error("Failed to copy markersfrom internal clipboard", ioe);
+            logger.error("Failed to copy markers from internal clipboard", ioe);
             showError("Fehler beim Einfügen der Markierungen");
         }
         markerModel.fireTableDataChanged();
-    }
-
-    private void copyBBToExternalClipboardEvent() {
-        try {
-            List<Marker> markers = getSelectedMarkers();
-            if (markers.isEmpty()) {
-                showInfo("Keine Markierungen ausgewählt");
-                return;
-            }
-            boolean extended = (JOptionPaneHelper.showQuestionConfirmBox(this, "Erweiterte BB-Codes verwenden (nur für Forum und Notizen geeignet)?", "Erweiterter BB-Code", "Nein", "Ja") == JOptionPane.YES_OPTION);
-
-            StringBuilder buffer = new StringBuilder();
-            if (extended) {
-                buffer.append("[u][size=12]Markierungen[/size][/u]\n\n");
-            } else {
-                buffer.append("[u]Markierungen[/u]\n\n");
-            }
-
-            buffer.append(new MarkerListFormatter().formatElements(markers, extended));
-
-            if (extended) {
-                buffer.append("\n[size=8]Erstellt am ");
-                buffer.append(new SimpleDateFormat("dd.MM.yy 'um' HH:mm:ss").format(Calendar.getInstance().getTime()));
-                buffer.append(" mit [url=\"http://www.dsworkbench.de/index.php?id=23\"]DS Workbench ");
-                buffer.append(Constants.VERSION).append(Constants.VERSION_ADDITION + "[/url][/size]\n");
-            } else {
-                buffer.append("\nErstellt am ");
-                buffer.append(new SimpleDateFormat("dd.MM.yy 'um' HH:mm:ss").format(Calendar.getInstance().getTime()));
-                buffer.append(" mit [url=\"http://www.dsworkbench.de/index.php?id=23\"]DS Workbench ");
-                buffer.append(Constants.VERSION).append(Constants.VERSION_ADDITION + "[/url]\n");
-            }
-
-            String b = buffer.toString();
-            StringTokenizer t = new StringTokenizer(b, "[");
-            int cnt = t.countTokens();
-            if (cnt > 1000) {
-                if (JOptionPaneHelper.showQuestionConfirmBox(this, "Die ausgewählten Markierungen benötigen mehr als 1000 BB-Codes\n" + "und können daher im Spiel (Forum/IGM/Notizen) nicht auf einmal dargestellt werden.\nTrotzdem exportieren?", "Zu viele BB-Codes", "Nein", "Ja") == JOptionPane.NO_OPTION) {
-                    return;
-                }
-            }
-
-            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(b), null);
-            String result = "Daten in Zwischenablage kopiert.";
-            showSuccess(result);
-        } catch (Exception e) {
-            logger.error("Failed to copy data to clipboard", e);
-            String result = "Fehler beim Kopieren in die Zwischenablage.";
-            showError(result);
-        }
+        MarkerManager.getSingleton().revalidate(getMarkerSet(), true);
     }
 
     public boolean deleteSelection(boolean pAsk) {

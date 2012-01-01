@@ -35,7 +35,6 @@ import de.tor.tribes.util.ProfileManager;
 import de.tor.tribes.util.ProfileManagerListener;
 import de.tor.tribes.util.PropertyHelper;
 import de.tor.tribes.util.TableHelper;
-import de.tor.tribes.util.UIHelper;
 import de.tor.tribes.util.algo.MerchantDestination;
 import de.tor.tribes.util.algo.MerchantDistributor;
 import de.tor.tribes.util.algo.MerchantSource;
@@ -85,6 +84,7 @@ import org.jdesktop.swingx.decorator.HighlighterFactory;
 import org.jdesktop.swingx.painter.MattePainter;
 
 /**
+ * @TODO add "remove transports with too long distance" feature
  * @author Jejkal
  */
 public class DSWorkbenchMerchantDistibutor extends AbstractDSWorkbenchFrame implements ListSelectionListener, ActionListener, ProfileManagerListener {
@@ -1333,12 +1333,13 @@ public class DSWorkbenchMerchantDistibutor extends AbstractDSWorkbenchFrame impl
             int[] targetRes = null;
             int[] remainRes = null;
             if (jAdjustingDistribution.isSelected()) {
-                targetRes = new int[]{UIHelper.parseIntFromField(jTargetWood, 0),
-                    UIHelper.parseIntFromField(jTargetClay, 0),
-                    UIHelper.parseIntFromField(jTargetIron, 0)};
-                remainRes = new int[]{UIHelper.parseIntFromField(jRemainWood, 0),
-                    UIHelper.parseIntFromField(jRemainClay, 0),
-                    UIHelper.parseIntFromField(jRemainIron, 0)};
+                try {
+                    targetRes = new int[]{Integer.parseInt(jTargetWood.getText()), Integer.parseInt(jTargetClay.getText()), Integer.parseInt(jTargetIron.getText())};
+                    remainRes = new int[]{Integer.parseInt(jRemainWood.getText()), Integer.parseInt(jRemainClay.getText()), Integer.parseInt(jRemainIron.getText())};
+                } catch (Exception e) {
+                    JOptionPaneHelper.showWarningBox(this, "Ressourcenangaben fehlerhaft", "Fehler");
+                    return;
+                }
             } else {
                 int woodSum = 0;
                 int claySum = 0;
@@ -1358,7 +1359,13 @@ public class DSWorkbenchMerchantDistibutor extends AbstractDSWorkbenchFrame impl
                 remainRes = new int[]{targetRes[0], targetRes[1], targetRes[2]};
             }
 
-            int maxFilling = UIHelper.parseIntFromField(jMaxFilling, 95);
+            int maxFilling = 95;
+            try {
+                maxFilling = Integer.parseInt(jMaxFilling.getText());
+            } catch (Exception e) {
+                maxFilling = 95;
+                jMaxFilling.setText("95");
+            }
 
             List<VillageMerchantInfo> copy = new LinkedList<VillageMerchantInfo>();
             for (int i = 0; i < merchantInfos.size(); i++) {
@@ -1480,11 +1487,6 @@ public class DSWorkbenchMerchantDistibutor extends AbstractDSWorkbenchFrame impl
             rebuildTable(jMerchantTable, merchantInfos);
             showSuccess(infoPanel, jXInfoLabel, "<html>" + ((infos.size() == 1) ? "1 neuen Eintrag " : infos.size() + " neue Eintr&auml;ge") + " hinzugef&uuml;gt<br/>"
                     + ((changesToBoth + dirChanges == 1) ? "1 Eintrag " : (changesToBoth + dirChanges) + " Eintr&auml;ge") + " ver&auml;ndert</html>");
-            if (merchantInfos.size() > 500) {
-                JOptionPaneHelper.showWarningBox(this, "Es wurden mehr als 500 Einträge eingefügt, die Berechnung der Transporte kann daher sehr lange dauern.\n"
-                        + "Während die Berechnung läuft wird DS Workbench nicht reagieren.\n"
-                        + "Es wird dringend empfohlen, die Berechnung in kleineren Einzelschritten durchzuführen.", "Warnung");
-            }
         } catch (Exception e) {
             logger.error("Failed to read merchant data", e);
             showError(infoPanel, jXInfoLabel, "Fehler beim Lesen aus der Zwischenablage");
@@ -1691,11 +1693,11 @@ public class DSWorkbenchMerchantDistibutor extends AbstractDSWorkbenchFrame impl
 
         int usedMerchants = 0;
         int usedTransports = 0;
-        int minAmount = 1;
+        int minAmount = 0;
 
         try {
             if (jIgnoreTransportsButton.isSelected()) {
-                minAmount = UIHelper.parseIntFromField(jMinTransportAmount, 1000);
+                minAmount = Integer.parseInt(jMinTransportAmount.getText()) / 1000;
             } else {
                 minAmount = 1;
             }

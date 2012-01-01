@@ -75,7 +75,7 @@ public class SOSRequest implements BBSupport {
         String sourceDateTypeVal = "";
         String attackList = "";
         String sourceTypeVal = "";
-        List<Attack> thisAttacks = new ArrayList<Attack>();
+        List<Attack> attacks = new ArrayList<Attack>();
         for (int i = 0; i < atts.size(); i++) {
             try {
                 TimedAttack attack = atts.get(i);
@@ -94,12 +94,12 @@ public class SOSRequest implements BBSupport {
                 if (a.getUnit() == null) {
                     a.setUnit(UnknownUnit.getSingleton());
                 }
-                thisAttacks.add(a);
+                attacks.add(a);
             } catch (Exception e) {
             }
         }
 
-        attackList = new AttackListFormatter().formatElements(thisAttacks, pExtended);
+        attackList = new AttackListFormatter().formatElements(attacks, pExtended);
 
         for (int i = 0; i < atts.size(); i++) {
             try {
@@ -133,7 +133,7 @@ public class SOSRequest implements BBSupport {
     }
 
     private String buildUnitInfo(TargetInformation pTargetInfo) {
-        StringBuilder buffer = new StringBuilder();
+        StringBuffer buffer = new StringBuffer();
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMinimumFractionDigits(0);
         nf.setMaximumFractionDigits(0);
@@ -160,7 +160,7 @@ public class SOSRequest implements BBSupport {
     }
 
     private String buildWallInfo(TargetInformation pTargetInfo) {
-        StringBuilder buffer = new StringBuilder();
+        StringBuffer buffer = new StringBuffer();
         double perc = pTargetInfo.getWallLevel() / 20.0;
         int filledFields = (int) Math.rint(perc * 15.0);
         buffer.append("[color=#00FF00]");
@@ -176,7 +176,7 @@ public class SOSRequest implements BBSupport {
             buffer.append("[/color]");
         }
 
-        buffer.append(" (").append(pTargetInfo.getWallLevel()).append(")");
+        buffer.append(" (" + pTargetInfo.getWallLevel() + ")");
         return buffer.toString();
     }
 
@@ -201,7 +201,7 @@ public class SOSRequest implements BBSupport {
         attacks = new Hashtable<Village, TargetInformation>();
     }
 
-    public final void setDefender(Tribe pDefender) {
+    public void setDefender(Tribe pDefender) {
         mDefender = pDefender;
     }
 
@@ -230,7 +230,7 @@ public class SOSRequest implements BBSupport {
     }
 
     public String toBBCode(boolean pDetailed) {
-        StringBuilder buffer = new StringBuilder();
+        StringBuffer buffer = new StringBuffer();
         Enumeration<Village> targets = getTargets();
         while (targets.hasMoreElements()) {
             Village target = targets.nextElement();
@@ -242,7 +242,7 @@ public class SOSRequest implements BBSupport {
     }
 
     public String toBBCode(Village pTarget, boolean pDetailed) {
-        StringBuilder buffer = new StringBuilder();
+        StringBuffer buffer = new StringBuffer();
         Village target = pTarget;
         TargetInformation targetInfo = getTargetInformation(target);
         if (targetInfo == null) {
@@ -250,32 +250,6 @@ public class SOSRequest implements BBSupport {
         }
         buffer.append(SOSFormater.format(target, targetInfo, pDetailed));
         return buffer.toString();
-    }
-
-    public SOSRequest merge(SOSRequest pNewRequest) {
-        SOSRequest newRequest = new SOSRequest(getDefender());
-        Enumeration<Village> targets = getTargets();
-        while (targets.hasMoreElements()) {
-            Village target = targets.nextElement();
-            TargetInformation thisInfo = getTargetInformation(target);
-            TargetInformation theOtherInfo = pNewRequest.getTargetInformation(target);
-            newRequest.addTarget(target);
-            TargetInformation theNewInfo = newRequest.getTargetInformation(target);
-            thisInfo.merge(theOtherInfo, theNewInfo);
-        }
-
-        Enumeration<Village> newTargets = pNewRequest.getTargets();
-        while (newTargets.hasMoreElements()) {
-            Village target = newTargets.nextElement();
-            TargetInformation theOtherInfo = pNewRequest.getTargetInformation(target);
-            TargetInformation thisInfo = getTargetInformation(target);
-
-            newRequest.addTarget(target);
-            TargetInformation theNewInfo = newRequest.getTargetInformation(target);
-            theOtherInfo.merge(thisInfo, theNewInfo);
-        }
-
-        return newRequest;
     }
 
     @Override
@@ -298,47 +272,10 @@ public class SOSRequest implements BBSupport {
         private List<TimedAttack> attacks = null;
         private int iWallLevel = 20;
         private Hashtable<UnitHolder, Integer> troops = null;
-        private int delta = 0;
-        private int snobs = 0;
-        private int fakes = 0;
-        private long first = Long.MAX_VALUE;
-        private long last = Long.MIN_VALUE;
-        private boolean updating = false;
 
         public TargetInformation() {
             attacks = new LinkedList<TimedAttack>();
             troops = new Hashtable<UnitHolder, Integer>();
-        }
-
-        private void updateAttackInfo() {
-            if (updating) {
-                return;
-            }
-            snobs = 0;
-            fakes = 0;
-            first = Long.MAX_VALUE;
-            last = Long.MIN_VALUE;
-            for (TimedAttack a : getAttacks()) {
-                if (a.isPossibleFake()) {
-                    fakes++;
-                } else if (a.isPossibleSnob()) {
-                    snobs++;
-                }
-                if (a.getlArriveTime() < first) {
-                    first = a.getlArriveTime();
-                }
-                if (a.getlArriveTime() > last) {
-                    last = a.getlArriveTime();
-                }
-            }
-        }
-
-        public int getDelta() {
-            return delta;
-        }
-
-        public void setDelta(int pDelta) {
-            delta = pDelta;
         }
 
         /**
@@ -354,27 +291,6 @@ public class SOSRequest implements BBSupport {
         public void addAttack(Village pSource, Date pArrive) {
             attacks.add(new TimedAttack(pSource, pArrive));
             Collections.sort(attacks, SOSRequest.ARRIVE_TIME_COMPARATOR);
-            updateAttackInfo();
-        }
-
-        public int getFakes() {
-            return fakes;
-        }
-
-        public int getSnobs() {
-            return snobs;
-        }
-
-        public int getOffs() {
-            return getAttacks().size() - fakes;
-        }
-
-        public long getFirstAttack() {
-            return first;
-        }
-
-        public long getLastAttack() {
-            return last;
         }
 
         /**
@@ -406,59 +322,16 @@ public class SOSRequest implements BBSupport {
         }
 
         public String getTroopInformationAsHTML() {
-            StringBuilder b = new StringBuilder();
+            StringBuffer b = new StringBuffer();
 
             for (UnitHolder unit : DataHolder.getSingleton().getUnits()) {
                 Integer amount = troops.get(unit);
                 if (amount != null) {
-                    b.append("<img src=\"").append(SOSRequest.class.getResource("/res/ui/" + unit.getPlainName() + ".png")).append("\"/>&nbsp;").append(amount).append("\n");
+                    b.append("<img src=\"" + SOSRequest.class.getResource("/res/ui/" + unit.getPlainName() + ".png") + "\"/>&nbsp;" + amount + "\n");
                 }
             }
 
             return b.toString();
-        }
-
-        public TargetInformation merge(TargetInformation pInfo, TargetInformation pNewInfo) {
-            boolean millis = ServerSettings.getSingleton().isMillisArrival();
-            List<TimedAttack> thisAttacks = getAttacks();
-            int attCount = thisAttacks.size();
-            List<TimedAttack> theOtherAttacks = null;
-            if (pInfo != null) {
-                theOtherAttacks = pInfo.getAttacks();
-            }
-            TargetInformation theNewInfo = (pNewInfo == null) ? new TargetInformation() : pNewInfo;
-            theNewInfo.setWallLevel(getWallLevel());
-            Hashtable<UnitHolder, Integer> theOtherTroopInfo = getTroops();
-            Enumeration<UnitHolder> units = theOtherTroopInfo.keys();
-            while (units.hasMoreElements()) {
-                UnitHolder unit = units.nextElement();
-                theNewInfo.addTroopInformation(unit, theOtherTroopInfo.get(unit));
-            }
-
-            for (TimedAttack thisAttack : thisAttacks.toArray(new TimedAttack[]{})) {
-                theNewInfo.addAttack(thisAttack.getSource(), new Date(thisAttack.getlArriveTime()));
-            }
-
-            if (theOtherAttacks != null) {
-                for (TimedAttack theOtherAttack : theOtherAttacks) {
-                    boolean add = true;
-                    if (millis) {//only check if millis are enabled...otherwise we should keep all attacks, as we cannot separate them clearly
-                        for (TimedAttack theNewAttack : theNewInfo.getAttacks()) {//go through all attacks and check if one is equal
-                            if (theNewAttack.getSource().equals(theOtherAttack.getSource()) && theNewAttack.getlArriveTime().equals(theOtherAttack.getlArriveTime())) {
-                                //attack seems to be the same...skip adding
-                                add = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (add) {//attack seems not to exist...add it
-                        theNewInfo.addAttack(theOtherAttack.getSource(), new Date(theOtherAttack.getlArriveTime()));
-                    }
-                }
-            }
-            theNewInfo.setDelta(theNewInfo.getAttacks().size() - attCount);
-            return theNewInfo;
         }
 
         @Override

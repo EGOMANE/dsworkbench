@@ -62,7 +62,6 @@ import de.tor.tribes.util.MapShotListener;
 import de.tor.tribes.util.MouseGestureHandler;
 import de.tor.tribes.util.PluginManager;
 import de.tor.tribes.util.ServerSettings;
-import de.tor.tribes.util.UIHelper;
 import de.tor.tribes.util.attack.AttackManager;
 import de.tor.tribes.util.church.ChurchManager;
 import de.tor.tribes.util.conquer.ConquerManager;
@@ -84,6 +83,7 @@ import java.awt.Dimension;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
@@ -105,9 +105,10 @@ import org.jdesktop.swingx.painter.MattePainter;
 import org.jdesktop.swingx.tips.TipLoader;
 import org.jdesktop.swingx.tips.TipOfTheDayModel;
 import org.pushingpixels.flamingo.api.ribbon.JRibbonFrame;
+import org.pushingpixels.flamingo.internal.ui.ribbon.BasicRibbonUI;
 
 /**
- * @TODO (Diff) Parser info in mini version visible
+ * @TODO set views explicitly to front if app menu is hidden
  * @author  Charon
  */
 public class DSWorkbenchMainFrame extends JRibbonFrame implements
@@ -775,11 +776,11 @@ public class DSWorkbenchMainFrame extends JRibbonFrame implements
         logger.info("Setting MainWindow visible");
         if (GlobalOptions.isMinimal()) {
             getContentPane().remove(jPanel4);
-            getContentPane().add(infoPanel, BorderLayout.SOUTH);
-            setSize(530, 200);
-            setPreferredSize(new Dimension(530, 200));
-            setMinimumSize(new Dimension(530, 200));
-            setMaximumSize(new Dimension(1900, 200));
+            setSize(390, 185);
+            setPreferredSize(new Dimension(390, 185));
+            setMinimumSize(new Dimension(390, 185));
+            setMaximumSize(new Dimension(1900, 185));
+
         }
         super.setVisible(v);
         final boolean vis = v;
@@ -1050,7 +1051,6 @@ public class DSWorkbenchMainFrame extends JRibbonFrame implements
         jLabel13 = new javax.swing.JLabel();
         jShowMouseOverInfo = new javax.swing.JCheckBox();
         jIncludeSupport = new javax.swing.JCheckBox();
-        jLabel3 = new javax.swing.JLabel();
         jROIPanel = new javax.swing.JPanel();
         jLabel6 = new javax.swing.JLabel();
         jROIBox = new javax.swing.JComboBox();
@@ -1970,8 +1970,7 @@ public class DSWorkbenchMainFrame extends JRibbonFrame implements
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         jMapPanel.add(jLabel12, gridBagConstraints);
 
-        jGraphicPacks.setMaximumSize(new java.awt.Dimension(28, 20));
-        jGraphicPacks.setMinimumSize(new java.awt.Dimension(28, 20));
+        jGraphicPacks.setMinimumSize(new java.awt.Dimension(23, 20));
         jGraphicPacks.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 fireGraphicPackChangedEvent(evt);
@@ -2112,13 +2111,6 @@ public class DSWorkbenchMainFrame extends JRibbonFrame implements
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         jMapPanel.add(jIncludeSupport, gridBagConstraints);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 7;
-        gridBagConstraints.gridwidth = 5;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.weighty = 1.0;
-        jMapPanel.add(jLabel3, gridBagConstraints);
 
         jROIPanel.setBackground(new java.awt.Color(239, 235, 223));
         jROIPanel.setMaximumSize(new java.awt.Dimension(293, 70));
@@ -2378,8 +2370,18 @@ public class DSWorkbenchMainFrame extends JRibbonFrame implements
 
     /**Update map position*/
 private void fireRefreshMapEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fireRefreshMapEvent
-    double cx = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-    double cy = UIHelper.parseIntFromField(jCenterX, (int) dCenterY);
+    double cx = dCenterX;
+    double cy = dCenterY;
+    try {
+        cx = Integer.parseInt(jCenterX.getText());
+        cy = Integer.parseInt(jCenterY.getText());
+    } catch (Exception e) {
+        cx = dCenterX;
+        cy = dCenterY;
+        jCenterX.setText(Integer.toString((int) cx));
+        jCenterY.setText(Integer.toString((int) cy));
+    }
+
     if (ServerSettings.getSingleton().getCoordType() != 2) {
         int[] hier = DSCalculator.hierarchicalToXy((int) cx, (int) cy, 12);
         if (hier != null) {
@@ -2398,8 +2400,15 @@ private void fireRefreshMapEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:eve
 
     /**Update map movement*/
 private void fireMoveMapEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fireMoveMapEvent
-    double cx = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-    double cy = UIHelper.parseIntFromField(jCenterX, (int) dCenterY);
+    double cx = dCenterX;
+    double cy = dCenterY;
+    try {
+        cx = Integer.parseInt(jCenterX.getText());
+        cy = Integer.parseInt(jCenterY.getText());
+    } catch (Exception e) {
+        cx = dCenterX;
+        cy = dCenterY;
+    }
 
     if (ServerSettings.getSingleton().getCoordType() != 2) {
         int[] hier = DSCalculator.hierarchicalToXy((int) cx, (int) cy, 12);
@@ -2474,8 +2483,8 @@ private void fireZoomEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fir
         dZoomFactor = Double.parseDouble(NumberFormat.getInstance().format(dZoomFactor).replaceAll(",", "."));
         double w = (double) MapPanel.getSingleton().getWidth() / GlobalOptions.getSkin().getBasicFieldWidth() * dZoomFactor;
         double h = (double) MapPanel.getSingleton().getHeight() / GlobalOptions.getSkin().getBasicFieldHeight() * dZoomFactor;
-        int xPos = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-        int yPos = UIHelper.parseIntFromField(jCenterY, (int) dCenterY);
+        int xPos = Integer.parseInt(jCenterX.getText());
+        int yPos = Integer.parseInt(jCenterY.getText());
         if (ServerSettings.getSingleton().getCoordType() != 2) {
             int[] hier = DSCalculator.hierarchicalToXy(xPos, yPos, 12);
             if (hier != null) {
@@ -2494,8 +2503,8 @@ private void fireZoomEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fir
         dZoomFactor = Double.parseDouble(NumberFormat.getInstance().format(dZoomFactor).replaceAll(",", "."));
         double w = (double) MapPanel.getSingleton().getWidth() / GlobalOptions.getSkin().getBasicFieldWidth() * dZoomFactor;
         double h = (double) MapPanel.getSingleton().getHeight() / GlobalOptions.getSkin().getBasicFieldHeight() * dZoomFactor;
-        int xPos = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-        int yPos = UIHelper.parseIntFromField(jCenterY, (int) dCenterY);
+        int xPos = Integer.parseInt(jCenterX.getText());
+        int yPos = Integer.parseInt(jCenterY.getText());
 
         if (ServerSettings.getSingleton().getCoordType() != 2) {
             int[] hier = DSCalculator.hierarchicalToXy(xPos, yPos, 12);
@@ -2539,9 +2548,7 @@ private void fireCenterCurrentPosInGameEvent(java.awt.event.MouseEvent evt) {//G
     if (!jCenterCoordinateIngame.isEnabled()) {
         return;
     }
-    BrowserCommandSender.centerCoordinate(
-            UIHelper.parseIntFromField(jCenterX, (int) dCenterX),
-            UIHelper.parseIntFromField(jCenterY, (int) dCenterY));
+    BrowserCommandSender.centerCoordinate(Integer.parseInt(jCenterX.getText()), Integer.parseInt(jCenterY.getText()));
 }//GEN-LAST:event_fireCenterCurrentPosInGameEvent
 
     /**Do tool action*/
@@ -2849,10 +2856,17 @@ private void fireShowChurchFrameEvent(java.awt.event.ActionEvent evt) {//GEN-FIR
 
 private void fireChangeROIEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fireChangeROIEvent
     if (evt.getSource() == jAddROIButton) {
-        int x = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-        int y = UIHelper.parseIntFromField(jCenterY, (int) dCenterY);
-        jROIRegion.setText("(" + x + "|" + y + ")");
-        jROIPosition.setSelectedIndex(jROIPosition.getItemCount() - 1);
+        try {
+            int x = Integer.parseInt(jCenterX.getText());
+            int y = Integer.parseInt(jCenterY.getText());
+            jROIRegion.setText("(" + x + "|" + y + ")");
+            jROIPosition.setSelectedIndex(jROIPosition.getItemCount() - 1);
+        } catch (Exception e) {
+            logger.error("Failed to initialize ROI dialog", e);
+            return;
+
+        }
+
         jAddROIDialog.setLocationRelativeTo(this);
         jAddROIDialog.setVisible(true);
     } else {
@@ -2870,13 +2884,14 @@ private void fireAddROIDoneEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:eve
 
     if (evt.getSource() == jAddNewROIButton) {
         try {
-            int x = UIHelper.parseIntFromField(jCenterX, (int) dCenterX);
-            int y = UIHelper.parseIntFromField(jCenterY, (int) dCenterY);
+            int x = Integer.parseInt(jCenterX.getText());
+            int y = Integer.parseInt(jCenterY.getText());
             String value = jROITextField.getText() + " (" + x + "|" + y + ")";
             int pos = Integer.MAX_VALUE;
             try {
                 pos = Integer.parseInt((String) jROIPosition.getSelectedItem());
-                pos -= 1;
+                pos -=
+                        1;
             } catch (Exception ee) {
                 //end pos selected
                 pos = Integer.MAX_VALUE;
@@ -2986,8 +3001,21 @@ private void fireShowRulerChangedEvent(javax.swing.event.ChangeEvent evt) {//GEN
 }//GEN-LAST:event_fireShowRulerChangedEvent
 
 private void fireRadarValueChangedEvent(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_fireRadarValueChangedEvent
-    int hours = UIHelper.parseIntFromField(jHourField, 1);
-    int minutes = UIHelper.parseIntFromField(jMinuteField);
+    int hours = 1;
+    try {
+        hours = Integer.parseInt(jHourField.getText());
+    } catch (Exception e) {
+        //failed to read hours
+        return;
+    }
+    int minutes = 0;
+    try {
+        minutes = Integer.parseInt(jMinuteField.getText());
+    } catch (Exception e) {
+        //failed to read minutes
+        return;
+    }
+
     GlobalOptions.addProperty("radar.size", Integer.toString(hours * 60 + minutes));
 }//GEN-LAST:event_fireRadarValueChangedEvent
 
@@ -3529,7 +3557,6 @@ private void fireChangeClipboardWatchEvent(java.awt.event.MouseEvent evt) {//GEN
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;

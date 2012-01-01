@@ -171,8 +171,7 @@ public abstract class GenericManager<C extends ManageableType> {
     public List<ManageableType> getAllElementsFromAllGroups() {
         List<ManageableType> allElements = new LinkedList<ManageableType>();
         for (String group : getGroups()) {
-            List<ManageableType> elementsInGroup = getAllElements(group);
-            Collections.addAll(allElements, elementsInGroup.toArray(new ManageableType[elementsInGroup.size()]));
+            Collections.addAll(allElements, getAllElements(group).toArray(new ManageableType[]{}));
         }
         return allElements;
     }

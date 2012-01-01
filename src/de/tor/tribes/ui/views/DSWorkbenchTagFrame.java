@@ -175,6 +175,7 @@ public class DSWorkbenchTagFrame extends AbstractDSWorkbenchFrame implements Gen
         pConfig.setProperty(getPropertyPrefix() + ".alwaysOnTop", jAlwaysOnTopBox.isSelected());
 
         PropertyHelper.storeTableProperties(jTagsTable, pConfig, getPropertyPrefix());
+
     }
 
     public void restoreCustomProperties(Configuration pConfig) {

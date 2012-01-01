@@ -19,14 +19,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.StringTokenizer;
-import org.apache.log4j.Logger;
 
 /**
+ * @TODO (Diff) Fixed report parser for old worlds
  * @author Torridity
  */
 public class ReportParser implements SilentParserInterface {
 
-    private static Logger logger = Logger.getLogger("ReportParser");
+    private static boolean DEBUG = false;
 
     public boolean parse(String pData) {
         try {
@@ -49,8 +49,8 @@ public class ReportParser implements SilentParserInterface {
     }
 
     private static void debug(String pMessage) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(pMessage);
+        if (DEBUG) {
+            System.out.println(pMessage);
         }
     }
 

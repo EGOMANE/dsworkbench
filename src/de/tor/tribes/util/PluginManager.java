@@ -4,7 +4,6 @@
  */
 package de.tor.tribes.util;
 
-import de.tor.tribes.types.Marker;
 import de.tor.tribes.types.SOSRequest;
 import de.tor.tribes.types.Village;
 import de.tor.tribes.types.VillageMerchantInfo;
@@ -101,7 +100,7 @@ public class PluginManager {
             Object parser = loadParser("de.tor.tribes.util.parser.VillageParser");
             return ((GenericParserInterface<Village>) parser).parse(pData);
         } catch (Exception e) {
-            logger.error("Failed to execute village parser", e);
+            logger.error("Failed to execute merchant parser", e);
         }
         return new LinkedList<Village>();
     }
@@ -118,16 +117,6 @@ public class PluginManager {
             logger.error("Failed to execute merchant parser", e);
         }
         return new LinkedList<VillageMerchantInfo>();
-    }
-
-    public List<Marker> executeDiplomacyParser(String pData) {
-        try {
-            Object parser = loadParser("de.tor.tribes.util.parser.DiplomacyParser");
-            return ((GenericParserInterface<Marker>) parser).parse(pData);
-        } catch (Exception e) {
-            logger.error("Failed to execute diplomacy parser", e);
-        }
-        return new LinkedList<Marker>();
     }
 
     public boolean executeSupportParser(String pData) {

@@ -6,12 +6,14 @@ package de.tor.tribes.types;
 
 import de.tor.tribes.control.ManageableType;
 import de.tor.tribes.io.DataHolder;
+import de.tor.tribes.ui.MapPanel;
+import de.tor.tribes.ui.renderer.map.RenderSettings;
 import de.tor.tribes.util.BBSupport;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Shape;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.log4j.Logger;
 import org.jdom.Element;
 
@@ -45,7 +47,7 @@ public abstract class AbstractForm extends ManageableType implements BBSupport {
     private double yPos = 0;
     private Color textColor = Color.BLACK;
     private float textAlpha = 1.0f;
-    private String formName = "Kein Name";
+    private String formName = "";
     private boolean visibleOnMap = false;
     private int textSize = 14;
     private boolean showMode = false;
@@ -134,15 +136,14 @@ public abstract class AbstractForm extends ManageableType implements BBSupport {
     @Override
     public String toXml() {
         try {
-            StringBuilder b = new StringBuilder();
-            b.append("<form type=\"").append(getTypeAsString(getFormType())).append("\">\n");
-            b.append("<name><![CDATA[").append(URLEncoder.encode(getFormName(), "UTF-8")).append("]]></name>\n");
-            b.append("<pos x=\"").append(getXPos()).append("\" y=\"").append(getYPos()).append("\"/>\n");// rot=\"" + getRotation() + "\"/>\n");
-            b.append("<textColor r=\"").append(getTextColor().getRed()).append("\" g=\"").append(getTextColor().getGreen()).append("\" b=\"").append(getTextColor().getBlue()).append("\" a=\"").append(getTextAlpha()).append("\"/>\n");
-            b.append("<textSize>").append(getTextSize()).append("</textSize>\n");
-            b.append(getFormXml());
-            b.append("</form>\n");
-            return b.toString();
+            String xml = "<form type=\"" + getTypeAsString(getFormType()) + "\">\n";
+            xml += "<name><![CDATA[" + URLEncoder.encode(getFormName(), "UTF-8") + "]]></name>\n";
+            xml += "<pos x=\"" + getXPos() + "\" y=\"" + getYPos() + "\"/>\n";// rot=\"" + getRotation() + "\"/>\n";
+            xml += "<textColor r=\"" + getTextColor().getRed() + "\" g=\"" + getTextColor().getGreen() + "\" b=\"" + getTextColor().getBlue() + "\" a=\"" + getTextAlpha() + "\"/>\n";
+            xml += "<textSize>" + getTextSize() + "</textSize>\n";
+            xml += getFormXml();
+            xml += "</form>\n";
+            return xml;
         } catch (Exception e) {
             return "\n";
         }
@@ -152,9 +153,12 @@ public abstract class AbstractForm extends ManageableType implements BBSupport {
 
     public abstract java.awt.Rectangle getBounds();
 
-    public List<Village> getContainedVillages() {
+    //@TODO do more accurate selection based on map layer!?
+    public ArrayList<Village> getContainedVillages() {
+        RenderSettings r = MapPanel.getSingleton().getMapRenderer().getRenderSettings();
+
         java.awt.Rectangle bounds = getBounds();
-        List<Village> v = new ArrayList<Village>();
+        ArrayList<Village> v = new ArrayList<Village>();
         for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
             for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
                 try {
@@ -275,9 +279,6 @@ public abstract class AbstractForm extends ManageableType implements BBSupport {
      * @param formName the formName to set
      */
     public void setFormName(String formName) {
-        if (formName == null || formName.length() < 1) {
-            this.formName = "Kein Name";
-        }
         this.formName = formName;
     }
 
@@ -297,7 +298,9 @@ public abstract class AbstractForm extends ManageableType implements BBSupport {
 
     @Override
     public String toString() {
-        return getFormName() + " (" + getTypeAsString(getFormType()) + ")";
+        String s = getFormName();
+        s += " (" + getFormType() + ")";
+        return s;
     }
 
     /**

@@ -146,6 +146,8 @@ public class FightReport extends ManageableType implements Comparable<FightRepor
     public String getStandardTemplate() {
         return STANDARD_TEMPLATE;
     }
+
+   
     private boolean won = false;
     private long timestamp = 0;
     private double luck = 0.0;
@@ -397,6 +399,7 @@ public class FightReport extends ManageableType implements Comparable<FightRepor
             xml += "</report>";
             return xml;
         } catch (Exception e) {
+            e.printStackTrace();
             return null;
         }
     }
@@ -587,7 +590,6 @@ public class FightReport extends ManageableType implements Comparable<FightRepor
         return (attackerCount < 1000);
     }
 
-    //@TODO configurable guess
     public int guessType() {
         if (wasSnobAttack() || isSimpleSnobAttack()) {
             //acceptance reduced, must be snob
@@ -618,9 +620,7 @@ public class FightReport extends ManageableType implements Comparable<FightRepor
             return Attack.SNOB_TYPE;
         }
 
-        double spyPerc = 100.0 * (double) spyCount / (double) attackerCount;
-
-        if (spyPerc > 50.0) {
+        if (spyCount == attackerCount) {
             //only spies joined the attack
             return Attack.SPY_TYPE;
         }

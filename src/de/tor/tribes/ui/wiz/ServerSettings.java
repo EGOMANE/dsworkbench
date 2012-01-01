@@ -239,12 +239,9 @@ private void fireSelectServerEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:e
             currentSettings.put("server", selection.getServerID());
             wizCtrl.setProblem("Bitte einen Spielernamen wählen");
         } catch (Throwable t) {
-            wizCtrl.setProblem("Fehler beim Download der Spielerdaten");
-        } finally {
-            r.close();
         }
-
-    } catch (Throwable t) {
+        r.close();
+    } catch (Exception ioe) {
         wizCtrl.setProblem("Fehler beim Herunterladen der Serverinformationen.\nBitte versuch es später nochmal.");
     }
 

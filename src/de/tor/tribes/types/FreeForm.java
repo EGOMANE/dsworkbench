@@ -102,7 +102,7 @@ public class FreeForm extends AbstractForm {
         } else {
             colorVal = "#" + Integer.toHexString(Color.BLACK.getRGB() & 0x00ffffff);
         }
-        List<Village> containedVillages = getContainedVillages();
+        ArrayList<Village> containedVillages = getContainedVillages();
         String villageListVal = "";
         if (containedVillages != null && !containedVillages.isEmpty()) {
             villageListVal = new VillageListFormatter().formatElements(containedVillages, pExtended);
@@ -161,23 +161,6 @@ public class FreeForm extends AbstractForm {
         g2d.setColor(cBefore);
         g2d.setComposite(coBefore);
         g2d.setFont(fBefore);
-    }
-
-    @Override
-    public List<Village> getContainedVillages() {
-        Point2D.Double pp = MapPanel.getSingleton().virtualPosToSceenPosDouble(points.get(0).getX(), points.get(0).getY());
-        GeneralPath p = new GeneralPath();
-        p.moveTo(pp.x, pp.y);
-        for (int i = 1; i < points.size(); i++) {
-            pp = MapPanel.getSingleton().virtualPosToSceenPosDouble(points.get(i).getX(), points.get(i).getY());
-            p.lineTo(pp.x, pp.y);
-        }
-        p.closePath();
-        List<Village> result = MapPanel.getSingleton().getVillagesInShape(p);
-        if (result == null) {
-            return super.getContainedVillages();
-        }
-        return result;
     }
 
     public void renderPreview(Graphics2D g2d) {
@@ -278,18 +261,17 @@ public class FreeForm extends AbstractForm {
 
     @Override
     protected String getFormXml() {
-        StringBuilder b = new StringBuilder();
-        b.append("<drawColor r=\"").append(getDrawColor().getRed()).append("\" g=\"").append(getDrawColor().getGreen()).append("\" b=\"").append(getDrawColor().getBlue()).append("\" a=\"").append(getDrawAlpha()).append( "\"/>\n");
-        b.append("<filled>").append(isFilled()).append("</filled>\n");
-        b.append("<stroke width=\"").append(getStrokeWidth()).append( "\"/>\n");
-        b.append("<drawName>").append(isDrawName()).append( "</drawName>\n");
-        b.append("<tolerance>").append(getTolerance()).append( "</tolerance>\n");
-        b.append( "<points>\n");
+        String xml = "<drawColor r=\"" + getDrawColor().getRed() + "\" g=\"" + getDrawColor().getGreen() + "\" b=\"" + getDrawColor().getBlue() + "\" a=\"" + getDrawAlpha() + "\"/>\n";
+        xml += "<filled>" + isFilled() + "</filled>\n";
+        xml += "<stroke width=\"" + getStrokeWidth() + "\"/>\n";
+        xml += "<drawName>" + isDrawName() + "</drawName>\n";
+        xml += "<tolerance>" + getTolerance() + "</tolerance>\n";
+        xml += "<points>\n";
         for (Point2D.Double p : points) {
-            b.append("<point x=\"").append(p.getX()).append("\" y=\"").append(p.getY()).append("\"/>\n");
+            xml += "<point x=\"" + p.getX() + "\" y=\"" + p.getY() + "\"/>\n";
         }
-        b.append( "</points>\n");
-        return b.toString();
+        xml += "</points>\n";
+        return xml;
     }
 
     @Override

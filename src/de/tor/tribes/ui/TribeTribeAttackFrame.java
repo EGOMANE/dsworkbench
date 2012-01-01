@@ -15,11 +15,10 @@ import de.tor.tribes.types.AbstractTroopMovement;
 import de.tor.tribes.types.Ally;
 import de.tor.tribes.types.Attack;
 import de.tor.tribes.types.Barbarians;
-import de.tor.tribes.types.DefenseElement;
-import de.tor.tribes.types.DefenseTimeSpan;
-import de.tor.tribes.types.NoTag;
 import de.tor.tribes.types.Tag;
 import de.tor.tribes.types.Tribe;
+import de.tor.tribes.types.TroopFilterElement;
+import de.tor.tribes.types.UserProfile;
 import de.tor.tribes.types.Village;
 import de.tor.tribes.ui.TroopSplitDialog.TroopSplit;
 import de.tor.tribes.ui.algo.AlgorithmLogPanel;
@@ -39,7 +38,6 @@ import de.tor.tribes.ui.renderer.TribeCellRenderer;
 import de.tor.tribes.ui.renderer.UnitCellRenderer;
 import de.tor.tribes.ui.renderer.UnitListCellRenderer;
 import de.tor.tribes.ui.renderer.VillageCellRenderer;
-import de.tor.tribes.util.AllyUtils;
 import de.tor.tribes.util.Constants;
 import de.tor.tribes.util.DSCalculator;
 import de.tor.tribes.util.DSWorkbenchGesturedFrame;
@@ -48,13 +46,13 @@ import de.tor.tribes.util.JOptionPaneHelper;
 import de.tor.tribes.util.MouseGestureHandler;
 import de.tor.tribes.util.PluginManager;
 import de.tor.tribes.util.ProfileManager;
+import de.tor.tribes.util.ServerSettings;
 import de.tor.tribes.util.TableHelper;
-import de.tor.tribes.util.UIHelper;
-import de.tor.tribes.util.VillageUtils;
 import de.tor.tribes.util.algo.AbstractAttackAlgorithm;
 import de.tor.tribes.util.algo.AlgorithmListener;
 import de.tor.tribes.util.algo.BruteForce;
 import de.tor.tribes.util.algo.Iterix;
+import de.tor.tribes.util.algo.Recurrection;
 import de.tor.tribes.util.algo.TimeFrame;
 import de.tor.tribes.util.attack.AttackManager;
 import de.tor.tribes.util.bb.AttackListFormatter;
@@ -126,7 +124,6 @@ import javax.swing.JProgressBar;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import javax.swing.table.DefaultTableCellRenderer;
-import org.apache.commons.lang.math.LongRange;
 import org.apache.log4j.ConsoleAppender;
 import org.jdesktop.swingx.JXButton;
 import org.jdesktop.swingx.JXCollapsiblePane;
@@ -139,7 +136,6 @@ import org.jdesktop.swingx.renderer.DefaultTableRenderer;
 import org.jdesktop.swingx.table.TableColumnExt;
 
 /**
- * @TODO (Diff) Arrive time in result table visible
  * @author Jejkal
  */
 public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
@@ -181,7 +177,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("Copy")) {
-            if (e.getSource() != null && (e.getSource().equals(jSourcesTable) || e.getSource().equals(jVictimTable))) {
+            if (e.getSource() != null && e.getSource().equals(jSourcesTable)) {
                 if (jideTabbedPane1.getSelectedIndex() == 0) {
                     fireTransferEvent(TRANSFER_TYPE.COPY_SOURCE_TO_INTERNAL_CLIPBOARD);
                 } else if (jideTabbedPane1.getSelectedIndex() == 1) {
@@ -191,7 +187,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                 fireTransferEvent(TRANSFER_TYPE.COPY_ATTACK_TO_INTERNAL_CLIPBOARD);
             }
         } else if (e.getActionCommand().equals("Paste")) {
-            if (e.getSource() != null && (e.getSource().equals(jSourcesTable) || e.getSource().equals(jVictimTable))) {
+            if (e.getSource() != null && e.getSource().equals(jSourcesTable)) {
                 if (jideTabbedPane1.getSelectedIndex() == 0) {
                     fireTransferEvent(TRANSFER_TYPE.PASTE_SOURCE_FROM_INTERNAL_CLIPBOARD);
                 } else if (jideTabbedPane1.getSelectedIndex() == 1) {
@@ -199,7 +195,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                 }
             }
         } else if (e.getActionCommand().equals("Cut")) {
-            if (e.getSource() != null && (e.getSource().equals(jSourcesTable) || e.getSource().equals(jVictimTable))) {
+            if (e.getSource() != null && e.getSource().equals(jSourcesTable)) {
                 if (jideTabbedPane1.getSelectedIndex() == 0) {
                     fireTransferEvent(TRANSFER_TYPE.CUT_SOURCE_TO_INTERNAL_CLIPBOARD);
                 } else if (jideTabbedPane1.getSelectedIndex() == 1) {
@@ -207,7 +203,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                 }
             }
         } else if (e.getActionCommand().equals("Delete")) {
-            if (e.getSource() != null && (e.getSource().equals(jSourcesTable) || e.getSource().equals(jVictimTable))) {
+            if (e.getSource() != null && e.getSource().equals(jSourcesTable)) {
                 if (jideTabbedPane1.getSelectedIndex() == 0) {
                     fireTransferEvent(TRANSFER_TYPE.DELETE_SOURCE);
                 } else if (jideTabbedPane1.getSelectedIndex() == 1) {
@@ -388,7 +384,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         filterPane.getContentPane().add(filterTroopsByStrength);
         //filter by attack plan
         JXButton filterByAttackPlan = new JXButton(new ImageIcon(TribeTribeAttackFrame.class.getResource("/res/ui/filter_off.png")));
-        filterByAttackPlan.setToolTipText("Entfernt alle Herkunfts- oder Zieldörfer, die bereits in einem vorhandenen Angriffsplan auftauchen");
+        filterByAttackPlan.setToolTipText("Entfernt aller Herkunfts- oder Zieldörfer, die bereits in einem vorhandenen Angriffsplan auftauchen");
         filterByAttackPlan.addMouseListener(new MouseAdapter() {
 
             @Override
@@ -909,6 +905,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
     }
 
     private void miscRefreshPossibleAttacks() {
+
         jRefreshProgressDialog.pack();
         jRefreshProgressDialog.setLocationRelativeTo(TribeTribeAttackFrame.this);
         jProgressBar1.setString("Aktualisiere mögliche Angriffe");
@@ -918,6 +915,70 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         jideTabbedPane1.setSelectedIndex(0);
         new RefreshThread(jRefreshProgressDialog, jProgressBar1, mSettingsPanel, jSourcesTable, jVictimTable).start();
         jRefreshProgressDialog.setVisible(true);
+    }
+
+    static class RefreshThread extends Thread {
+
+        private SettingsPanel mSettingsPanel;
+        private JXTable jSourcesTable;
+        private JXTable jVictimTable;
+        private JDialog jDialog;
+        private JProgressBar mBar;
+
+        public RefreshThread(JDialog dialog, JProgressBar bar, SettingsPanel pPanel, JXTable source, JXTable target) {
+            jDialog = dialog;
+            mSettingsPanel = pPanel;
+            jSourcesTable = source;
+            jVictimTable = target;
+            mBar = bar;
+            setDaemon(true);
+        }
+
+        public void run() {
+            if (mSettingsPanel != null) {
+                TimeFrame f = mSettingsPanel.getTimeFrame();
+                DefaultTableModel sourceModel = (DefaultTableModel) jSourcesTable.getModel();
+                DefaultTableModel victimModel = (DefaultTableModel) jVictimTable.getModel();
+                if (f.isValid()) {
+                    int victimAmountCol = jVictimTable.convertColumnIndexToModel(4);
+                    for (int j = 0; j < victimModel.getRowCount(); j++) {
+                        victimModel.setValueAt(0, j, victimAmountCol);
+                    }
+
+                    int sourceVillageCol = jSourcesTable.convertColumnIndexToModel(0);
+                    int victimVillageCol = jVictimTable.convertColumnIndexToModel(1);
+                    int sourceUnitCol = jSourcesTable.convertColumnIndexToModel(1);
+                    int sourceAmountCol = jSourcesTable.convertColumnIndexToModel(3);
+
+                    for (int i = 0; i < sourceModel.getRowCount(); i++) {
+                        int targets = 0;
+                        for (int j = 0; j < victimModel.getRowCount(); j++) {
+                            Village source = (Village) sourceModel.getValueAt(i, sourceVillageCol);
+                            Village target = (Village) victimModel.getValueAt(j, victimVillageCol);
+                            UnitHolder unit = (UnitHolder) sourceModel.getValueAt(i, sourceUnitCol);
+                            long run = (long) DSCalculator.calculateMoveTimeInSeconds(source, target, unit.getSpeed()) * 1000;
+                            if (f.isMovementPossible(run, source.getTribe())) {
+                                targets++;
+                                victimModel.setValueAt((Integer) victimModel.getValueAt(j, victimAmountCol) + 1, j, victimAmountCol);
+                            }
+                        }
+                        if (i % 10 == 0) {
+                            mBar.setValue(i * victimModel.getRowCount());
+                        }
+
+                        sourceModel.setValueAt(targets, i, sourceAmountCol);
+                    }
+                }
+                //showSuccess("Mögliche Angriffe aktualisiert");
+                mBar.setString("Mögliche Angriffe aktualisiert");
+                try {
+                    Thread.sleep(100);
+                } catch (Exception e) {
+                }
+                // jideTabbedPane1.setSelectedIndex(0);
+                jDialog.setVisible(false);
+            }
+        }
     }
 
     public void showSuccess(String pMessage) {
@@ -1023,6 +1084,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         resultInfoPanel = new org.jdesktop.swingx.JXCollapsiblePane();
         jxResultInfoLabel = new org.jdesktop.swingx.JXLabel();
         jAddToAttacksButton2 = new javax.swing.JButton();
+        attackTypeGroup = new javax.swing.ButtonGroup();
         jAttackResultDetailsFrame = new javax.swing.JFrame();
         jHideAttackDetailsButton = new javax.swing.JButton();
         jScrollPane11 = new javax.swing.JScrollPane();
@@ -1087,7 +1149,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         jScrollPane10 = new javax.swing.JScrollPane();
         jTargetVillageList = new javax.swing.JList();
         jLabel11 = new javax.swing.JLabel();
-        jTargetAllyFilter = new javax.swing.JTextField();
+        jTargetTribeFilter = new javax.swing.JTextField();
         jMarkTargetAsFake = new javax.swing.JCheckBox();
         jLabel7 = new javax.swing.JLabel();
         jMaxAttacksPerVillage = new javax.swing.JSpinner();
@@ -1106,13 +1168,6 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         jSettingsContentPanel = new javax.swing.JPanel();
         settingsInfoPanel = new org.jdesktop.swingx.JXCollapsiblePane();
         jxSettingsInfoLabel = new org.jdesktop.swingx.JXLabel();
-        jResultTransferDialog = new javax.swing.JDialog();
-        jLabel14 = new javax.swing.JLabel();
-        jExistingPlanBox = new javax.swing.JComboBox();
-        jLabel15 = new javax.swing.JLabel();
-        jNewPlanName = new org.jdesktop.swingx.JXTextField();
-        jCancelTransferButton = new javax.swing.JButton();
-        jDoTransferButton = new javax.swing.JButton();
         jInfoLabel = new javax.swing.JLabel();
         jMainPanel = new javax.swing.JPanel();
         capabilityInfoPanel1 = new de.tor.tribes.ui.components.CapabilityInfoPanel();
@@ -1686,10 +1741,10 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addComponent(jSourceGroupRelation, javax.swing.GroupLayout.DEFAULT_SIZE, 305, Short.MAX_VALUE)
+                                .addComponent(jSourceGroupRelation, javax.swing.GroupLayout.DEFAULT_SIZE, 287, Short.MAX_VALUE)
                                 .addGap(39, 39, 39))
                             .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 334, Short.MAX_VALUE)
+                                .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 316, Short.MAX_VALUE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)))
                         .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 117, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(jEnableWarnBox)
@@ -1712,9 +1767,9 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                             .addComponent(jTroopsList, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addComponent(jPlayerSourcesOnlyBox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jPanel7, javax.swing.GroupLayout.DEFAULT_SIZE, 388, Short.MAX_VALUE))
-                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 449, Short.MAX_VALUE)
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 467, Short.MAX_VALUE)
                     .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(jSourceListScrollPane, javax.swing.GroupLayout.DEFAULT_SIZE, 362, Short.MAX_VALUE)
+                        .addComponent(jSourceListScrollPane, javax.swing.GroupLayout.DEFAULT_SIZE, 380, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(jAllSources, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1809,7 +1864,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
             jSourcePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jSourcePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)
+                .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, 262, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1856,7 +1911,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
 
         jLabel11.setText("Filter");
 
-        jTargetAllyFilter.addCaretListener(new javax.swing.event.CaretListener() {
+        jTargetTribeFilter.addCaretListener(new javax.swing.event.CaretListener() {
             public void caretUpdate(javax.swing.event.CaretEvent evt) {
                 fireTargetAllyFilterChangedEvent(evt);
             }
@@ -1908,18 +1963,18 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                     .addGroup(jPanel6Layout.createSequentialGroup()
                         .addComponent(jLabel11)
                         .addGap(12, 12, 12)
-                        .addComponent(jTargetAllyFilter, javax.swing.GroupLayout.DEFAULT_SIZE, 169, Short.MAX_VALUE))
-                    .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 205, Short.MAX_VALUE))
+                        .addComponent(jTargetTribeFilter, javax.swing.GroupLayout.DEFAULT_SIZE, 159, Short.MAX_VALUE))
+                    .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 195, Short.MAX_VALUE))
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 177, Short.MAX_VALUE)
+                .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 169, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane9, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel6Layout.createSequentialGroup()
                         .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, 185, Short.MAX_VALUE)
-                            .addComponent(jMarkTargetAsFake, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 185, Short.MAX_VALUE))
+                            .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, 203, Short.MAX_VALUE)
+                            .addComponent(jMarkTargetAsFake, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 203, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(10, 10, 10)
@@ -1929,9 +1984,9 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(jAllTargetsComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 131, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addComponent(jMaxAttacksPerVillage, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 197, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 404, Short.MAX_VALUE)
+                    .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 422, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
-                        .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 317, Short.MAX_VALUE)
+                        .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 335, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(jAllTargets, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1950,7 +2005,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(jLabel11)
-                            .addComponent(jTargetAllyFilter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addComponent(jTargetTribeFilter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(jPanel6Layout.createSequentialGroup()
                         .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(jPanel6Layout.createSequentialGroup()
@@ -1965,8 +2020,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
                             .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                                 .addComponent(jSeparator1, javax.swing.GroupLayout.Alignment.LEADING)
                                 .addComponent(jAllTargetsComboBox, javax.swing.GroupLayout.Alignment.LEADING)
-                                .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                    .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 21, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 21, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addComponent(jMarkTargetAsFake, javax.swing.GroupLayout.DEFAULT_SIZE, 25, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -2021,7 +2075,7 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
             jTargetPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jTargetPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, 326, Short.MAX_VALUE)
+                .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, 324, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jPanel6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -2053,84 +2107,6 @@ public class TribeTribeAttackFrame extends DSWorkbenchGesturedFrame implements
         jideTabbedPane1.addTab("Einstellungen", new javax.swing.ImageIcon(getClass().getResource("/res/settings.png")), jSettingsPanel); // NOI18N
 
         jxAttackPlanerPanel.add(jideTabbedPane1, java.awt.BorderLayout.CENTER);
-
-        jResultTransferDialog.setTitle("Angriffe übertragen");
-        jResultTransferDialog.getContentPane().setLayout(new java.awt.GridBagLayout());
-
-        jLabel14.setText("Angriffsplan");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jLabel14, gridBagConstraints);
-
-        jExistingPlanBox.setMinimumSize(new java.awt.Dimension(200, 20));
-        jExistingPlanBox.setPreferredSize(new java.awt.Dimension(200, 20));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = 2;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jExistingPlanBox, gridBagConstraints);
-
-        jLabel15.setText("Neuer Plan");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jLabel15, gridBagConstraints);
-
-        jNewPlanName.setMinimumSize(new java.awt.Dimension(200, 20));
-        jNewPlanName.setPreferredSize(new java.awt.Dimension(200, 20));
-        jNewPlanName.setPrompt("Bei Bedarf Name eingeben");
-        jNewPlanName.addCaretListener(new javax.swing.event.CaretListener() {
-            public void caretUpdate(javax.swing.event.CaretEvent evt) {
-                fireNewResultTargetPlanChangedEvent(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.gridwidth = 2;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jNewPlanName, gridBagConstraints);
-
-        jCancelTransferButton.setText("Abbrechen");
-        jCancelTransferButton.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                fireTransferResultsEvent(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHEAST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jCancelTransferButton, gridBagConstraints);
-
-        jDoTransferButton.setText("OK");
-        jDoTransferButton.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                fireTransferResultsEvent(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 2;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHEAST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        jResultTransferDialog.getContentPane().add(jDoTransferButton, gridBagConstraints);
 
         setTitle("Angriffsplaner");
         setBackground(new java.awt.Color(239, 235, 223));
@@ -2427,12 +2403,45 @@ private void fireSynchWithAttackPlansEvent(java.awt.event.MouseEvent evt) {//GEN
 }//GEN-LAST:event_fireSynchWithAttackPlansEvent
 
 private void fireTargetAllyFilterChangedEvent(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_fireTargetAllyFilterChangedEvent
-    Ally[] allies = AllyUtils.getAlliesByFilter(jTargetAllyFilter.getText(), Ally.CASE_INSENSITIVE_ORDER);
-    DefaultListModel targetAllyModel = new DefaultListModel();
-    for (Ally a : allies) {
-        targetAllyModel.addElement(a);
+    String text = jTargetTribeFilter.getText();
+    if (text.length() > 0) {
+        text = text.toLowerCase();
+        Enumeration<Integer> allyKeys = DataHolder.getSingleton().getAllies().keys();
+        List<Ally> allies = new LinkedList<Ally>();
+        while (allyKeys.hasMoreElements()) {
+            Ally a = DataHolder.getSingleton().getAllies().get(allyKeys.nextElement());
+            if (a.getName() != null && a.getTag() != null) {
+                if (a.getName().toLowerCase().indexOf(text) >= 0 || a.getTag().toLowerCase().indexOf(text) >= 0) {
+                    allies.add(a);
+                }
+            }
+        }
+        Ally[] aAllies = allies.toArray(new Ally[]{});
+        allies = null;
+        Arrays.sort(aAllies, Ally.CASE_INSENSITIVE_ORDER);
+        DefaultListModel targetAllyModel = new DefaultListModel();
+        for (Ally a : aAllies) {
+            targetAllyModel.addElement(a);
+        }
+        jTargetAllyList.setModel(targetAllyModel);
+
+    } else {
+        Enumeration<Integer> allyKeys = DataHolder.getSingleton().getAllies().keys();
+        List<Ally> allies = new LinkedList<Ally>();
+        while (allyKeys.hasMoreElements()) {
+            allies.add(DataHolder.getSingleton().getAllies().get(allyKeys.nextElement()));
+        }
+        Ally[] aAllies = allies.toArray(new Ally[]{});
+        allies = null;
+        Arrays.sort(aAllies, Ally.CASE_INSENSITIVE_ORDER);
+        DefaultListModel targetAllyModel = new DefaultListModel();
+        targetAllyModel.addElement("<Kein Stamm>");
+        for (Ally a : aAllies) {
+            targetAllyModel.addElement(a);
+        }
+        jTargetAllyList.setModel(targetAllyModel);
+
     }
-    jTargetAllyList.setModel(targetAllyModel);
 }//GEN-LAST:event_fireTargetAllyFilterChangedEvent
 
 private void fireClosingEvent(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_fireClosingEvent
@@ -2504,10 +2513,11 @@ private void fireShowPlayerSourcesOnlyChangedEvent(java.awt.event.ItemEvent evt)
 private void fireUpdateSelectionEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fireUpdateSelectionEvent
     int start = 1;
     int end = 10;
-
-    start = UIHelper.parseIntFromField(jSelectionStart, 1);
-    end = UIHelper.parseIntFromField(jSelectionEnd, 10);
-
+    try {
+        start = Integer.parseInt(jSelectionStart.getText());
+        end = Integer.parseInt(jSelectionEnd.getText());
+    } catch (Exception e) {
+    }
     try {
         //switch numbers if start larger than end
         if (start > end) {
@@ -2571,11 +2581,19 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
             return;
         }
 
-        jExistingPlanBox.setModel(new DefaultComboBoxModel(AttackManager.getSingleton().getGroups()));
-        jNewPlanName.setText(null);
-        jResultTransferDialog.setLocationRelativeTo(jResultFrame);
-        jResultTransferDialog.pack();
-        jResultTransferDialog.setVisible(true);
+        String result = (String) JOptionPane.showInputDialog(jResultFrame, "In welchen Angriffsplan sollen die Angriffe übertragen werden?", "Übertragen", JOptionPane.QUESTION_MESSAGE, null, AttackManager.getSingleton().getGroups(), AttackManager.DEFAULT_GROUP);
+        if (result == null) {
+            showInfo("Keine Angriffe übertragen", true);
+            return;
+        }
+
+        AttackManager.getSingleton().invalidate();
+        for (Attack a : results) {
+            AttackManager.getSingleton().addManagedElement(result, a);
+        }
+        AttackManager.getSingleton().revalidate(result, true);
+
+        showInfo(((results.size() == 1) ? "Angriff " : results.size() + " Angriffe ") + "in Angriffsplan '" + result + "' übertragen", true);
     }//GEN-LAST:event_fireTransferAttacksToAttackViewEvent
 
     private void fireEnableWarningEvent(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_fireEnableWarningEvent
@@ -2625,39 +2643,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
 
     }//GEN-LAST:event_fireAddVillagesEvent
 
-    private void fireTransferResultsEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fireTransferResultsEvent
-        if (evt.getSource() == jDoTransferButton) {
-            List<Attack> results = getAllResults();
-            if (results == null || results.isEmpty()) {
-                showInfo("Keine Angriffe verfügbar", true);
-                return;
-            } else {
-                String plan = null;
-                if (jExistingPlanBox.isEnabled()) {
-                    plan = (String) jExistingPlanBox.getSelectedItem();
-                } else {
-                    plan = jNewPlanName.getText();
-                    AttackManager.getSingleton().addGroup(plan);
-                }
-
-                AttackManager.getSingleton().invalidate();
-                for (Attack a : results) {
-                    AttackManager.getSingleton().addManagedElement(plan, a);
-                }
-                AttackManager.getSingleton().revalidate(plan, true);
-
-                showInfo(((results.size() == 1) ? "Angriff " : results.size() + " Angriffe ") + "in Angriffsplan '" + plan + "' übertragen", true);
-            }
-        }
-        jResultTransferDialog.setVisible(false);
-    }//GEN-LAST:event_fireTransferResultsEvent
-
-    private void fireNewResultTargetPlanChangedEvent(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_fireNewResultTargetPlanChangedEvent
-        boolean enableExisting = !(jNewPlanName.getText() != null && !jNewPlanName.getText().equals(""));
-        jExistingPlanBox.setEnabled(enableExisting);
-        jLabel14.setEnabled(enableExisting);
-    }//GEN-LAST:event_fireNewResultTargetPlanChangedEvent
-
     private void fireTransferEvent(TRANSFER_TYPE pType) {
         switch (pType) {
             case COPY_SOURCE_TO_INTERNAL_CLIPBOARD:
@@ -2667,7 +2652,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
                 sourceToInternalClipboardAction(pType);
                 break;
             case PASTE_SOURCE_FROM_INTERNAL_CLIPBOARD:
-                sourceFromInternalClipboardAction();
+                sourceFromInternalClipboardAction(pType);
                 break;
             case DELETE_SOURCE:
                 deleteAction(jSourcesTable);
@@ -2679,7 +2664,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
                 targetToInternalClipboardAction(pType);
                 break;
             case PASTE_TARGET_FROM_INTERNAL_CLIPBOARD:
-                targetFromInternalClipboardAction();
+                targetFromInternalClipboardAction(pType);
                 break;
             case DELETE_TARGET:
                 deleteAction(jVictimTable);
@@ -2755,7 +2740,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         }
     }
 
-    private void sourceFromInternalClipboardAction() {
+    private void sourceFromInternalClipboardAction(TRANSFER_TYPE pType) {
         String data = "";
         try {
             data = (String) Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null).getTransferData(DataFlavor.stringFlavor);
@@ -2798,7 +2783,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         }
     }
 
-    private void targetFromInternalClipboardAction() {
+    private void targetFromInternalClipboardAction(TRANSFER_TYPE pType) {
         String data = "";
         try {
             data = (String) Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null).getTransferData(DataFlavor.stringFlavor);
@@ -2964,7 +2949,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
                 Date d = (Date) jResultsTable.getValueAt(row, 3);
                 long arriveTime = d.getTime() + (long) (DSCalculator.calculateMoveTimeInSeconds(s, t, unit.getSpeed()) * 1000);
 
-                int type = (Integer) jResultsTable.getValueAt(row, 5);
+                int type = (Integer) jResultsTable.getValueAt(row, 4);
                 Attack a = new Attack();
                 a.setSource(s);
                 a.setTarget(t);
@@ -3001,7 +2986,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
                 Date d = (Date) jResultsTable.getValueAt(row, 3);
                 long arriveTime = d.getTime() + (long) (DSCalculator.calculateMoveTimeInSeconds(s, t, unit.getSpeed()) * 1000);
 
-                int type = (Integer) jResultsTable.getValueAt(row, 5);
+                int type = (Integer) jResultsTable.getValueAt(row, 4);
                 Attack a = new Attack();
                 a.setSource(s);
                 a.setTarget(t);
@@ -3089,13 +3074,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         }
     }
 
-    public void prepareForDefense(DefenseElement[] pElements) {
-        for (DefenseElement elem : pElements) {
-            fireAddTargetEvent(elem.getTarget(), elem.getNeededSupports());
-            mSettingsPanel.addTimeSpanExternally(new DefenseTimeSpan(elem.getTarget(), new LongRange(elem.getFirstAttack().getTime(), elem.getLastAttack().getTime())));
-        }
-    }
-
     /**Add selected target villages filtered by points*/
     private void fireAddFilteredTargetVillages() {
         Tribe target = (Tribe) jTargetTribeList.getSelectedValue();
@@ -3135,10 +3113,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     }
 
     private void updateInfo() {
-        if (jVictimTable.getModel().getColumnCount() < 5) {
-            //not set up yet
-            return;
-        }
         // <editor-fold defaultstate="collapsed" desc="Update status bar info">
         StringBuilder builder = new StringBuilder();
         builder.append("<html><nobr><b>Herkunft: </b>");
@@ -3180,13 +3154,9 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         int targetAttacks = 0;
         int targetFake = 0;
         for (int i = 0; i < targets; i++) {
-            Object val = jVictimTable.getValueAt(i, 3);
-            int attacksOnVillage = 0;
-            if (val != null) {
-                attacksOnVillage = (Integer) val;
-            }
+            int attacksOnVillage = (Integer) jVictimTable.getValueAt(i, 3);
             targetAttacks += attacksOnVillage;
-            val = jVictimTable.getValueAt(i, 2);
+            Object val = jVictimTable.getValueAt(i, 2);
             if (val != null) {
                 targetFake += ((Boolean) val) ? attacksOnVillage : 0;
             } else {
@@ -3314,10 +3284,10 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         DefaultTableModel resultModel = new javax.swing.table.DefaultTableModel(
                 new Object[][]{},
                 new String[]{
-                    "Herkunft", "Einheit", "Ziel", "Start", "Ankunft", "Typ", ""}) {
+                    "Herkunft", "Einheit", "Ziel", "Startzeit", "Typ", ""}) {
 
             Class[] types = new Class[]{
-                Village.class, UnitHolder.class, Village.class, Date.class, Date.class, Integer.class, Boolean.class
+                Village.class, UnitHolder.class, Village.class, Date.class, Integer.class, Boolean.class
             };
 
             @Override
@@ -3338,7 +3308,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = new DateCellRenderer().getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 JLabel l = (JLabel) c;
-                Boolean impossible = (Boolean) table.getModel().getValueAt(row, 6);
+                Boolean impossible = (Boolean) table.getModel().getValueAt(row, 5);
                 if (impossible.booleanValue()) {
                     l.setText("<html><nobr><font color='#FF0000'>" + l.getText() + "</font></nobr></html>");
                 }
@@ -3366,7 +3336,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
                 impossibleAttacks++;
                 impossible = true;
             }
-            resultModel.addRow(new Object[]{a.getSource(), a.getUnit(), a.getTarget(), new Date(startTime), a.getArriveTime(), a.getType(), impossible});
+            resultModel.addRow(new Object[]{a.getSource(), a.getUnit(), a.getTarget(), new Date(startTime), a.getType(), impossible});
         }
 
         jResultsTable.setModel(resultModel);
@@ -3528,102 +3498,285 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     /**Filter source lists by selected groups*/
     private void fireFilterSourceVillagesByGroupEvent() {
         List<Village> villageList = getGroupFilteredSourceVillages();
-        String[] continents = VillageUtils.getContinents(villageList.toArray(new Village[villageList.size()]));
+        //build continents list
+        List<String> continentList = new LinkedList<String>();
+        for (Village v : villageList) {
+            int iCont = v.getContinent();
+            String cont = "K" + ((iCont < 10) ? "0" + iCont : iCont);
+            if (!continentList.contains(cont)) {
+                continentList.add(cont);
+            }
+        }
+        Collections.sort(continentList, String.CASE_INSENSITIVE_ORDER);
         DefaultListModel contModel = new DefaultListModel();
-        for (String cont : continents) {
+        for (String cont : continentList) {
             contModel.addElement(cont);
         }
         //set continents list -> village list updates automatically via continent list listener
         jSourceContinentList.setModel(contModel);
-        if (continents.length > 0) {
-            jSourceContinentList.getSelectionModel().setSelectionInterval(0, continents.length - 1);
-        }
+        jSourceContinentList.getSelectionModel().setSelectionInterval(0, continentList.size() - 1);
     }
 
     /**Get source villages filtered by selected groups*/
     private List<Village> getGroupFilteredSourceVillages() {
         Object[] values = jVillageGroupList.getSelectedValues();
-
-        List<Tag> tags = new LinkedList<Tag>();
-        for (Object o : values) {
-            tags.add((Tag) o);
+        List<Village> villageList = new LinkedList<Village>();
+        if (jVillageGroupList.isEnabled()) {
+            List<Tag> tags = new LinkedList<Tag>();
+            boolean useNoTag = false;
+            for (Object o : values) {
+                try {
+                    tags.add((Tag) o);
+                } catch (Exception e) {
+                    //no-tag villages contained
+                    useNoTag = true;
+                }
+            }
+            boolean onlyPlayerVillages = jPlayerSourcesOnlyBox.isSelected();
+            Tribe current = GlobalOptions.getSelectedProfile().getTribe();
+            if (jSourceGroupRelation.isSelected()) {
+                //default OR relation
+                //tags available, use them
+                for (Tag t : tags) {
+                    for (Integer vId : t.getVillageIDs()) {
+                        Village v = DataHolder.getSingleton().getVillagesById().get(vId);
+                        if (v != null && v.getTribe() != Barbarians.getSingleton() && !villageList.contains(v)) {
+                            //add only if a players villages is tagged
+                            if (!onlyPlayerVillages || (onlyPlayerVillages && v.getTribe().equals(current))) {
+                                //use village if all villages are allowed or if owner is current player
+                                villageList.add(v);
+                            }
+                        }
+                    }
+                }
+                if (useNoTag) {
+                    //use villages of current user which are not tagged
+                    Village[] villages = GlobalOptions.getSelectedProfile().getTribe().getVillageList();
+                    for (Village v : villages) {
+                        List<Tag> vtags = TagManager.getSingleton().getTags(v);
+                        if (vtags == null || vtags.isEmpty() && !villageList.contains(v)) {
+                            if (!onlyPlayerVillages || (onlyPlayerVillages && v.getTribe().equals(current))) {
+                                //use village if all villages are allowed or if owner is current player
+                                villageList.add(v);
+                            }
+                        }
+                    }
+                }
+            } else {
+                //AND relation
+                if (tags.isEmpty() && useNoTag) {
+                    //only use non tagges villages
+                    //-> if one tag is selected for AND relation, ignore non-tagged due to logical error
+                    if (useNoTag) {
+                        //use villages of current user which are not tagged
+                        Village[] villages = GlobalOptions.getSelectedProfile().getTribe().getVillageList();
+                        for (Village v : villages) {
+                            List<Tag> vtags = TagManager.getSingleton().getTags(v);
+                            if (vtags == null || vtags.isEmpty() && !villageList.contains(v)) {
+                                if (!onlyPlayerVillages || (onlyPlayerVillages && v.getTribe().equals(current))) {
+                                    //use village if all villages are allowed or if owner is current player
+                                    villageList.add(v);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    //perform AND relation
+                    List<Integer> villageIds = new LinkedList<Integer>();
+                    //get all villages tagged by any tag
+                    for (ManageableType e : TagManager.getSingleton().getAllElements()) {
+                        Tag t = (Tag) e;
+                        for (Integer i : t.getVillageIDs()) {
+                            if (!villageIds.contains(i)) {
+                                villageIds.add(i);
+                            }
+                        }
+                    }
+                    //check for all villages, if they are tagged by all selected tags
+                    for (Integer i : villageIds) {
+                        boolean use = true;
+                        for (Tag t : tags) {
+                            if (!t.tagsVillage(i)) {
+                                //at least one tag does not tag current village
+                                use = false;
+                                break;
+                            }
+                        }
+                        if (use) {
+                            //all tags tag current village, so use them
+                            Village v = DataHolder.getSingleton().getVillagesById().get(i);
+                            if (!villageList.contains(v)) {
+                                if (!onlyPlayerVillages || (onlyPlayerVillages && v.getTribe().equals(current))) {
+                                    //use village if all villages are allowed or if owner is current player
+                                    villageList.add(v);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            //no tags available, take current users villages
+            UserProfile profile = GlobalOptions.getSelectedProfile();
+            Village[] villages = profile.getTribe().getVillageList();
+            villageList.addAll(Arrays.asList(villages));
         }
-        Village[] villages = VillageUtils.getVillagesByTag(tags.toArray(new Tag[tags.size()]), (jPlayerSourcesOnlyBox.isSelected()) ? GlobalOptions.getSelectedProfile().getTribe() : null,
-                (jSourceGroupRelation.isSelected()) ? VillageUtils.RELATION.OR : VillageUtils.RELATION.AND, false, null);
-        return Arrays.asList(villages);
+        return villageList;
     }
     // </editor-fold>
     // <editor-fold defaultstate="collapsed" desc="Target selection handlers">
 
     /**Filter target lists by selected allies*/
     private void fireFilterTargetByAllyEvent() {
-        Ally a = (Ally) jTargetAllyList.getSelectedValue();
-        Tribe[] tribes = AllyUtils.getTribes(a, Tribe.CASE_INSENSITIVE_ORDER);
-        DefaultListModel model = new DefaultListModel();
-        for (Tribe t : tribes) {
-            model.addElement(t);
+        Ally a = null;
+        try {
+            a = (Ally) jTargetAllyList.getSelectedValue();
+        } catch (Exception e) {
         }
-        jTargetTribeList.setModel(model);
-        jTargetTribeList.setSelectedIndex(0);
+        if (a != null) {
+            //ally selected
+            Tribe[] tribes = a.getTribes().toArray(new Tribe[]{});
+            if ((tribes != null) && (tribes.length != 0)) {
+                Arrays.sort(tribes, Tribe.CASE_INSENSITIVE_ORDER);
+                jTargetTribeList.setModel(new DefaultComboBoxModel(tribes));
+                jTargetTribeList.setSelectedIndex(0);
+            } else {
+                //not tribes in ally -> should never happen
+                jTargetTribeList.setModel(new DefaultListModel());
+                jTargetContinentList.setModel(new DefaultListModel());
+                jTargetVillageList.setModel(new DefaultListModel());
+            }
+        } else {
+            //no ally selected, show no-ally tribes
+            Enumeration<Integer> tribeIDs = DataHolder.getSingleton().getTribes().keys();
+            List<Tribe> noAlly = new LinkedList<Tribe>();
+            while (tribeIDs.hasMoreElements()) {
+                Tribe t = DataHolder.getSingleton().getTribes().get(tribeIDs.nextElement());
+                if (t.getAlly() == null && t.getVillageList() != null && t.getVillageList().length > 0) {
+                    //only add tribes which are attackable
+                    noAlly.add(t);
+                }
+            }
+            Tribe[] noAllyTribes = noAlly.toArray(new Tribe[]{});
+            Arrays.sort(noAllyTribes, Tribe.CASE_INSENSITIVE_ORDER);
+            jTargetTribeList.setModel(new DefaultComboBoxModel(noAllyTribes));
+            jTargetTribeList.setSelectedIndex(0);
+        }
     }
 
     /**Filter target lists by selected tribes*/
     private void fireFilterTargetByTribeEvent() {
-        Tribe t = (Tribe) jTargetTribeList.getSelectedValue();
-        String[] continents = VillageUtils.getContinents(t);
-        DefaultListModel contModel = new DefaultListModel();
-        for (String cont : continents) {
-            contModel.addElement(cont);
-        }
-        jTargetContinentList.setModel(contModel);
-        if (continents.length > 0) {
-            jTargetContinentList.getSelectionModel().setSelectionInterval(0, continents.length - 1);
+        try {
+            Tribe t = (Tribe) jTargetTribeList.getSelectedValue();
+            if (t != Barbarians.getSingleton() && t.getVillageList() != null && t.getVillageList().length > 0) {
+                Village[] villages = t.getVillageList();
+                List<String> continents = new LinkedList<String>();
+                for (Village v : villages) {
+                    int cont = 0;
+                    if (ServerSettings.getSingleton().getCoordType() != 2) {
+                        cont = DSCalculator.xyToHierarchical(v.getX(), v.getY())[0];
+                    } else {
+                        cont = DSCalculator.getContinent(v.getX(), v.getY());
+                    }
+                    String contString = "K" + cont;
+                    if (!continents.contains(contString)) {
+                        continents.add(contString);
+                    }
+                }
+                Collections.sort(continents, String.CASE_INSENSITIVE_ORDER);
+                DefaultListModel contModel = new DefaultListModel();
+                for (String cont : continents) {
+                    contModel.addElement(cont);
+                }
+                jTargetContinentList.setModel(contModel);
+                jTargetContinentList.getSelectionModel().setSelectionInterval(0, continents.size() - 1);
+            } else {
+                //no tribe selected -> should never happen!
+                jTargetContinentList.setModel(new DefaultListModel());
+                jTargetVillageList.setModel(new DefaultListModel());
+            }
+        } catch (Exception e) {
+            jTargetContinentList.setModel(new DefaultListModel());
+            jTargetVillageList.setModel(new DefaultListModel());
         }
     }
 
     /**Filter source list by selected continents*/
     private void fireFilterSourceContinentEvent() {
-        Object[] conts = jSourceContinentList.getSelectedValues();
+        int[] conts = jSourceContinentList.getSelectedIndices();
+        if (conts == null) {
+            return;
+        }
         //build list of allowed continents
         List<Integer> allowedContinents = new LinkedList<Integer>();
-        for (Object cont : conts) {
-            int contId = Integer.parseInt(((String) cont).replaceAll("K", ""));
+        for (Integer cont : conts) {
+            int contId = Integer.parseInt(((String) jSourceContinentList.getModel().getElementAt(cont)).replaceAll("K", ""));
             allowedContinents.add(contId);
         }
         List<Village> villageList = getGroupFilteredSourceVillages();
-        Village[] filtered = VillageUtils.getVillagesByContinent(villageList.toArray(new Village[villageList.size()]),
-                allowedContinents.toArray(new Integer[allowedContinents.size()]), Village.CASE_INSENSITIVE_ORDER);
-
-        DefaultListModel villageModel = new DefaultListModel();
-        for (Village v : filtered) {
-            villageModel.addElement(v);
+        try {
+            List<Village> toRemove = new LinkedList<Village>();
+            for (Village v : villageList) {
+                int vCont = 0;
+                if (ServerSettings.getSingleton().getCoordType() != 2) {
+                    vCont = DSCalculator.xyToHierarchical(v.getX(), v.getY())[0];
+                } else {
+                    vCont = DSCalculator.getContinent(v.getX(), v.getY());
+                }
+                if (!allowedContinents.contains(vCont)) {
+                    toRemove.add(v);
+                }
+            }
+            //remove villages with wrong continent
+            for (Village v : toRemove) {
+                villageList.remove(v);
+            }
+            Collections.sort(villageList, Village.CASE_INSENSITIVE_ORDER);
+            //build village list
+            DefaultListModel villageModel = new DefaultListModel();
+            for (Village v : villageList) {
+                villageModel.addElement(v);
+            }
+            jSourceVillageList.setModel(villageModel);
+            jSourceVillageList.repaint();
+        } catch (Exception e) {
         }
-        jSourceVillageList.setModel(villageModel);
     }
 
     /**Filter target lists by selected continents*/
     private void fireFilterTargetByContinentEvent() {
+        //build list of selected/valid continents
         Object[] conts = jTargetContinentList.getSelectedValues();
-        //build list of allowed continents
-        List<Integer> allowedContinents = new LinkedList<Integer>();
+        List<Integer> validConts = new LinkedList<Integer>();
         for (Object cont : conts) {
-            int contId = Integer.parseInt(((String) cont).replaceAll("K", ""));
-            allowedContinents.add(contId);
+            String c = (String) cont;
+            c = c.replaceAll("K", "").trim();
+            validConts.add(Integer.parseInt(c));
         }
-
-        List<Tribe> tribes = new ArrayList<Tribe>();
-        for (Object tribe : jTargetTribeList.getSelectedValues()) {
-            tribes.add((Tribe) tribe);
+        Tribe t = (Tribe) jTargetTribeList.getSelectedValue();
+        if (t == null) {
+            return;
         }
+        Village[] villages = t.getVillageList();
 
-        Village[] filtered = VillageUtils.getVillagesByContinent(VillageUtils.getVillages(tribes.toArray(new Tribe[tribes.size()])),
-                allowedContinents.toArray(new Integer[allowedContinents.size()]),
-                Village.CASE_INSENSITIVE_ORDER);
-
+        List<Village> usedVillages = new ArrayList<Village>();
+        for (Village v : villages) {
+            int cont = 0;
+            if (ServerSettings.getSingleton().getCoordType() != 2) {
+                cont = DSCalculator.xyToHierarchical(v.getX(), v.getY())[0];
+            } else {
+                cont = DSCalculator.getContinent(v.getX(), v.getY());
+            }
+            if (validConts.contains(cont)) {
+                usedVillages.add(v);
+            }
+        }
+        Collections.sort(usedVillages, Village.CASE_INSENSITIVE_ORDER);
         DefaultListModel villageModel = new DefaultListModel();
-        for (Village v : filtered) {
+        for (Village v : usedVillages) {
             villageModel.addElement(v);
         }
+
         jTargetVillageList.setModel(villageModel);
     }
     // </editor-fold>
@@ -3733,11 +3886,17 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         });
 
         DefaultListModel tagModel = new DefaultListModel();
-        tagModel.addElement(NoTag.getSingleton());
+        tagModel.addElement("Keinen Tag");
         for (Tag t : tags) {
             tagModel.addElement(t);
         }
         jVillageGroupList.setModel(tagModel);
+
+        if (elements.isEmpty()) {
+            jVillageGroupList.setEnabled(false);
+        } else {
+            jVillageGroupList.setEnabled(true);
+        }
         //select all groups and initialize lists
         jVillageGroupList.getSelectionModel().setSelectionInterval(0, (elements.size() > 0) ? elements.size() : 0);
 
@@ -3913,6 +4072,7 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
         });
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.ButtonGroup attackTypeGroup;
     private de.tor.tribes.ui.components.CapabilityInfoPanel capabilityInfoPanel1;
     private de.tor.tribes.ui.components.CapabilityInfoPanel capabilityInfoPanel2;
     private javax.swing.JButton jAddToAttacksButton1;
@@ -3926,12 +4086,9 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private javax.swing.JProgressBar jAttacksBar;
     private javax.swing.JButton jCalculateButton;
     private javax.swing.JButton jCancelSyncButton;
-    private javax.swing.JButton jCancelTransferButton;
     private javax.swing.JButton jCloseResultsButton;
     private javax.swing.JButton jDoSyncButton;
-    private javax.swing.JButton jDoTransferButton;
     private javax.swing.JCheckBox jEnableWarnBox;
-    private javax.swing.JComboBox jExistingPlanBox;
     private javax.swing.JProgressBar jFullOffsBar;
     private javax.swing.JCheckBox jFullTargetsOnly;
     private javax.swing.JButton jHideAttackDetailsButton;
@@ -3942,8 +4099,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
-    private javax.swing.JLabel jLabel14;
-    private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel20;
     private javax.swing.JLabel jLabel22;
@@ -3958,7 +4113,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private javax.swing.JCheckBox jMarkAsFakeBox;
     private javax.swing.JCheckBox jMarkTargetAsFake;
     private javax.swing.JSpinner jMaxAttacksPerVillage;
-    private org.jdesktop.swingx.JXTextField jNewPlanName;
     private javax.swing.JButton jNextSelectionButton;
     private javax.swing.JTable jNotAssignedSourcesTable;
     private javax.swing.JPanel jPanel1;
@@ -3973,7 +4127,6 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private final javax.swing.JProgressBar jProgressBar1 = new javax.swing.JProgressBar();
     private javax.swing.JDialog jRefreshProgressDialog;
     private javax.swing.JFrame jResultFrame;
-    private javax.swing.JDialog jResultTransferDialog;
     private org.jdesktop.swingx.JXTable jResultsTable;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane10;
@@ -4004,12 +4157,12 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private javax.swing.JPanel jSourcePanel;
     private javax.swing.JList jSourceVillageList;
     private org.jdesktop.swingx.JXTable jSourcesTable;
-    private javax.swing.JTextField jTargetAllyFilter;
     private javax.swing.JList jTargetAllyList;
     private javax.swing.JList jTargetContinentList;
     private javax.swing.JTable jTargetDetailsTable;
     private javax.swing.JPanel jTargetPanel;
     private javax.swing.JFrame jTargetResultDetailsFrame;
+    private javax.swing.JTextField jTargetTribeFilter;
     private javax.swing.JList jTargetTribeList;
     private javax.swing.JList jTargetVillageList;
     private javax.swing.JProgressBar jTargetsBar;
@@ -4028,68 +4181,4 @@ private void fireHideInfoEvent(java.awt.event.MouseEvent evt) {//GEN-FIRST:event
     private org.jdesktop.swingx.JXCollapsiblePane sourceInfoPanel;
     private org.jdesktop.swingx.JXCollapsiblePane targetInfoPanel;
     // End of variables declaration//GEN-END:variables
-
-    static class RefreshThread extends Thread {
-
-        private SettingsPanel mSettingsPanel;
-        private JXTable jSourcesTable;
-        private JXTable jVictimTable;
-        private JDialog jDialog;
-        private JProgressBar mBar;
-
-        public RefreshThread(JDialog dialog, JProgressBar bar, SettingsPanel pPanel, JXTable source, JXTable target) {
-            jDialog = dialog;
-            mSettingsPanel = pPanel;
-            jSourcesTable = source;
-            jVictimTable = target;
-            mBar = bar;
-            setDaemon(true);
-        }
-
-        public void run() {
-            if (mSettingsPanel != null) {
-                TimeFrame f = mSettingsPanel.getTimeFrame();
-                DefaultTableModel sourceModel = (DefaultTableModel) jSourcesTable.getModel();
-                DefaultTableModel victimModel = (DefaultTableModel) jVictimTable.getModel();
-                if (f.isValid()) {
-                    int victimAmountCol = jVictimTable.convertColumnIndexToModel(4);
-                    for (int j = 0; j < victimModel.getRowCount(); j++) {
-                        victimModel.setValueAt(0, j, victimAmountCol);
-                    }
-
-                    int sourceVillageCol = jSourcesTable.convertColumnIndexToModel(0);
-                    int victimVillageCol = jVictimTable.convertColumnIndexToModel(1);
-                    int sourceUnitCol = jSourcesTable.convertColumnIndexToModel(1);
-                    int sourceAmountCol = jSourcesTable.convertColumnIndexToModel(3);
-
-                    for (int i = 0; i < sourceModel.getRowCount(); i++) {
-                        int targets = 0;
-                        for (int j = 0; j < victimModel.getRowCount(); j++) {
-                            Village source = (Village) sourceModel.getValueAt(i, sourceVillageCol);
-                            Village target = (Village) victimModel.getValueAt(j, victimVillageCol);
-                            UnitHolder unit = (UnitHolder) sourceModel.getValueAt(i, sourceUnitCol);
-                            long run = (long) DSCalculator.calculateMoveTimeInSeconds(source, target, unit.getSpeed()) * 1000;
-                            if (f.isMovementPossible(run, source)) {
-                                targets++;
-                                victimModel.setValueAt((Integer) victimModel.getValueAt(j, victimAmountCol) + 1, j, victimAmountCol);
-                            }
-                        }
-                        if (i % 10 == 0) {
-                            mBar.setValue(i * victimModel.getRowCount());
-                        }
-
-                        sourceModel.setValueAt(targets, i, sourceAmountCol);
-                    }
-                }
-                //showSuccess("Mögliche Angriffe aktualisiert");
-                mBar.setString("Mögliche Angriffe aktualisiert");
-                try {
-                    Thread.sleep(100);
-                } catch (Exception e) {
-                }
-                // jideTabbedPane1.setSelectedIndex(0);
-                jDialog.setVisible(false);
-            }
-        }
-    }
 }

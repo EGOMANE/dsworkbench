@@ -22,11 +22,13 @@ import de.tor.tribes.ui.renderer.AttackTypeCellRenderer;
 import de.tor.tribes.ui.renderer.DateCellRenderer;
 import de.tor.tribes.ui.renderer.DefaultTableHeaderRenderer;
 import de.tor.tribes.ui.renderer.FightReportCellRenderer;
+import de.tor.tribes.ui.renderer.BBCellRenderer;
 import de.tor.tribes.ui.renderer.ReportWallCataCellRenderer;
 import de.tor.tribes.ui.renderer.TribeCellRenderer;
 import de.tor.tribes.ui.renderer.UnitCellRenderer;
 import de.tor.tribes.ui.renderer.VillageCellRenderer;
 import de.tor.tribes.ui.views.DSWorkbenchReportFrame;
+import de.tor.tribes.ui.views.DSWorkbenchTroopsFrame;
 import de.tor.tribes.util.Constants;
 import de.tor.tribes.util.GlobalOptions;
 import de.tor.tribes.util.ImageUtils;
@@ -77,7 +79,7 @@ import org.jdesktop.swingx.painter.MattePainter;
 import org.jdesktop.swingx.table.TableColumnExt;
 
 /**
- *@TODO (Diff) Fixed report troops transfer (attacker troops to own and to in village)
+ *
  * @author Torridity
  */
 public class ReportTableTab extends javax.swing.JPanel implements ListSelectionListener, AStarResultReceiver {
@@ -341,9 +343,6 @@ public class ReportTableTab extends javax.swing.JPanel implements ListSelectionL
                 Hashtable<UnitHolder, Integer> attackers = report.getSurvivingAttackers();
                 VillageTroopsHolder holder = TroopsManager.getSingleton().getTroopsForVillage(source, TroopsManager.TROOP_TYPE.IN_VILLAGE, true);
                 holder.setTroops(attackers);
-                holder = TroopsManager.getSingleton().getTroopsForVillage(source, TroopsManager.TROOP_TYPE.OWN, true);
-                holder.setTroops(attackers);
-                TroopsManager.getSingleton().revalidate(TroopsManager.OWN_GROUP, true);
             }
             TroopsManager.getSingleton().revalidate(TroopsManager.IN_VILLAGE_GROUP, true);
         } else if (res == JOptionPane.YES_OPTION) {
@@ -364,9 +363,6 @@ public class ReportTableTab extends javax.swing.JPanel implements ListSelectionL
                 Hashtable<UnitHolder, Integer> attackers = report.getSurvivingAttackers();
                 VillageTroopsHolder holder = TroopsManager.getSingleton().getTroopsForVillage(source, TroopsManager.TROOP_TYPE.IN_VILLAGE, true);
                 holder.setTroops(attackers);
-                holder = TroopsManager.getSingleton().getTroopsForVillage(source, TroopsManager.TROOP_TYPE.OWN, true);
-                holder.setTroops(attackers);
-                TroopsManager.getSingleton().revalidate(TroopsManager.OWN_GROUP, true);
             }
             for (FightReport report : selectedReports) {
                 Village target = report.getTargetVillage();
@@ -375,7 +371,6 @@ public class ReportTableTab extends javax.swing.JPanel implements ListSelectionL
                 holder.setTroops(defenders);
             }
             TroopsManager.getSingleton().revalidate(TroopsManager.IN_VILLAGE_GROUP, true);
-
         } else {
             return;
         }

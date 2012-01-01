@@ -75,7 +75,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
 
                         long runtime = (long) time * 1000;
                         //check if attack is somehow possible
-                        if (pTimeFrame.isMovementPossible(runtime, v)) {
+                        if (pTimeFrame.isMovementPossible(runtime, source.getTribe())) {
                             //only calculate if time is in time frame
                             //get list of source villages for current target
                             Hashtable<UnitHolder, List<Village>> attacksForVillage = attacks.get(v);
@@ -118,7 +118,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
                                     if (added) {
                                         //only increment attack count if source was added
                                         vTarget = v;
-                                    } else {
+                                    }else{
                                         vTarget = null;
                                     }
                                 } else {
@@ -166,6 +166,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
         // <editor-fold defaultstate="collapsed" desc=" Assign fakes">
         unitKeys = pFakes.keys();
         Hashtable<Village, Hashtable<Village, UnitHolder>> fakes = new Hashtable<Village, Hashtable<Village, UnitHolder>>();
+        //notAssigned = new LinkedList<Village>();
 
         while (unitKeys.hasMoreElements()) {
             UnitHolder unit = unitKeys.nextElement();
@@ -177,6 +178,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
                     currentRun++;
                     updateStatus(maxRuns - currentRun, maxRuns);
                     //time when the attacks should arrive
+                    //  long arrive = pTimeFrame.getEnd();
                     //max. number of attacks per target village
 
                     Village vTarget = null;
@@ -193,9 +195,22 @@ public class BruteForce extends AbstractAttackAlgorithm {
                                     time = Double.MAX_VALUE;
                                 }
                             }
+                            /*Date sendTime = new Date(arrive - (long) time * 1000);
+                            if (pTimeFrame.isVariableArriveTime()) {
+                            //calculate possible arrive time and store it in sendTime
+                            sendTime = pTimeFrame.getRandomArriveTime(Math.round(time * 1000.0), source.getTribe(), new LinkedList<Long>());
+                            if (sendTime == null) {
+                            //no arrive time found, set send time to 1.1.1970
+                            sendTime = new Date(0);
+                            } else {
+                            //arrive time found, set correct send time
+                            sendTime = new Date(sendTime.getTime() - (long) time * 1000);
+                            }
+                            }*/
                             long runtime = (long) time * 1000;
                             //check if attack is somehow possible
-                            if (pTimeFrame.isMovementPossible(runtime, v)) {
+                            //if (pTimeFrame.inside(sendTime, source.getTribe())) {
+                            if (pTimeFrame.isMovementPossible(runtime, source.getTribe())) {
                                 //only calculate if time is in time frame
                                 //get list of source villages for current target
                                 Hashtable<Village, UnitHolder> attacksForVillage = fakes.get(v);
@@ -216,6 +231,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
                                     //there are already attacks on this village
                                     if (attacksForVillage.keySet().size() < maxAttacksPerVillage) {
                                         //more attacks on this village are allowed
+
                                         //max number of attacks neither for villages nor for player reached
                                         if (!attacksForVillage.containsKey(source)) {
                                             attacksForVillage.put(source, unit);
@@ -236,8 +252,8 @@ public class BruteForce extends AbstractAttackAlgorithm {
         }
 
         // </editor-fold>
-
-
+       
+              
         logText(" - Erstelle Ergebnisliste");
         //convert to result list
         List<AbstractTroopMovement> movements = new LinkedList<AbstractTroopMovement>();
@@ -262,7 +278,7 @@ public class BruteForce extends AbstractAttackAlgorithm {
             }
             movements.add(f);
         }
-
+        
         logger.debug(" - adding fakes");
         Enumeration<Village> fakeKeys = fakes.keys();
         while (fakeKeys.hasMoreElements()) {

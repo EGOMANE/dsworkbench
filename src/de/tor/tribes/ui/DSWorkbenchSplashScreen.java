@@ -20,10 +20,8 @@ import de.tor.tribes.util.PluginManager;
 import de.tor.tribes.util.ProfileManager;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -36,8 +34,8 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.SystemUtils;
-import org.apache.log4j.Appender;
 import org.apache.log4j.Level;
+import org.apache.log4j.RollingFileAppender;
 import org.netbeans.api.wizard.WizardDisplayer;
 import org.netbeans.spi.wizard.Wizard;
 import org.netbeans.spi.wizard.WizardPanelProvider;
@@ -178,36 +176,25 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
                 JOptionPaneHelper.showErrorBox(self, "Fehler bei der Initialisierung.\nDas Serververzeichnis konnte nicht erstellt werden.", "Fehler");
                 return false;
             }
-
             ProfileManager.getSingleton().loadProfiles();
-            if (ProfileManager.getSingleton().getProfiles().length == 0) {
-                logger.debug("Starting first start wizard");
+            if (ProfileManager.getSingleton().getProfiles().length == 0 || new File("./sfs").exists()) {
+                if (new File("./sfs").exists()) {
+                    if (new File("./.hfsw").exists()) {
+                        FileUtils.forceDelete(new File("./.hfsw"));
+                    }
+                    FileUtils.forceDelete(new File("./sfs"));
+                }
 
                 //first start wizard
-                if (!new File("./hfsw").exists()) {
-                    logger.debug(" - Initializing first start wizard");
-                    Map result = new HashMap<String, String>();
-
-                    try {
-                        WizardPanelProvider provider = new FirstStartWizard();
-                        Wizard wizard = provider.createWizard();
-                        logger.debug(" - Showing wizard");
-                        result = (Map) WizardDisplayer.showWizard(wizard);
-                        logger.debug("Wizard finished with result " + result);
-                    } catch (Throwable t) {
-                        logger.error("Wizard exception", t);
-                        result = null;
-                    }
-                    logger.debug(" - Wizard has finished");
+                if (!new File("./.hfsw").exists()) {
+                    WizardPanelProvider provider = new FirstStartWizard();
+                    Wizard wizard = provider.createWizard();
+                    Map result = (Map) WizardDisplayer.showWizard(wizard);
                     if (result == null) {
-                        logger.warn(" - Wizard returned no result. Startup will fail.");
                         JOptionPaneHelper.showWarningBox(self, "Du musst die grundlegenden Einstellungen zumindest einmalig durchführen,\n"
                                 + "um DS Workbench verwenden zu können. Bitte starte DS Workbench neu.", "Abbruch");
                         return false;
-                    } else {
-                        logger.debug("Wizard result: " + result);
                     }
-                    logger.debug("- First start wizard finished");
                     GlobalOptions.addProperty("proxySet", (String) result.get("proxySet"));
                     GlobalOptions.addProperty("proxyHost", (String) result.get("proxyHost"));
                     GlobalOptions.addProperty("proxyPort", (String) result.get("proxyPort"));
@@ -218,46 +205,14 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
                     GlobalOptions.addProperty("account.password", (String) result.get("account.password"));
                     GlobalOptions.addProperty("default.server", (String) result.get("server"));
                     GlobalOptions.addProperty("player." + (String) result.get("server"), (String) result.get("tribe"));
-                    logger.debug("Creating initial profile");
                     UserProfile p = UserProfile.create(GlobalOptions.getProperty("default.server"), GlobalOptions.getProperty("player." + GlobalOptions.getProperty("default.server")));
                     GlobalOptions.setSelectedProfile(p);
                     GlobalOptions.addProperty("selected.profile", Long.toString(p.getProfileId()));
-                    logger.debug(" - Disabling first start wizard");
-                    FileUtils.touch(new File("./hfsw"));
+                    FileUtils.touch(new File("./.hfsw"));
                     GlobalOptions.saveProperties();
                 }
             }
-
-            jStatusOutput.setString("Prüfe auf Updates");
-
-            //check updates
-            DSWorkbenchUpdateDialog updateDialog = new DSWorkbenchUpdateDialog(this, true);
-            DSWorkbenchUpdateDialog.UPDATE_RESULT result = DSWorkbenchUpdateDialog.UPDATE_RESULT.READY;
-            if (updateDialog.getResult() == DSWorkbenchUpdateDialog.UPDATE_RESULT.READY) {
-                updateDialog.setLocationRelativeTo(this);
-                updateDialog.setVisible(true);
-            }
-
-            result = updateDialog.getResult();
-            switch (result) {
-                case CANCELED:
-                    jStatusOutput.setString("Update abgebrochen");
-                    break;
-                case ERROR:
-                    jStatusOutput.setString("Updates momentan nicht möglich");
-                    break;
-                case SUCCESS:
-                    jStatusOutput.setString("Update erfolgreich. Neustart notwendig!");
-                    break;
-                case NOT_NEEDED:
-                    jStatusOutput.setString("Kein Update notwendig");
-                    break;
-                default:
-                    jStatusOutput.setString("Unbekannter Fehler beim Update");
-            }
-
             //load properties, cursors, skins, world decoration
-            logger.debug("Adding startup listeners");
             DataHolder.getSingleton().addDataHolderListener(this);
             DataHolder.getSingleton().addDataHolderListener(DSWorkbenchSettingsDialog.getSingleton());
             GlobalOptions.addDataHolderListener(this);
@@ -267,14 +222,11 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
             return false;
         }
 
-        logger.debug("Starting profile selection");
         try {
             //open profile selection
             if (ProfileManager.getSingleton().getProfiles().length == 0) {
-                logger.debug("No profile exists, SettingsDialog will handle this");
                 //no profile found...this is handles by the settings validation
             } else if (ProfileManager.getSingleton().getProfiles().length == 1) {
-                logger.debug("One profile exists. Using it...");
                 //only one single profile was found, use it
                 UserProfile profile = ProfileManager.getSingleton().getProfiles()[0];
                 String server = profile.getServerId();
@@ -283,7 +235,6 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
                 GlobalOptions.addProperty("default.server", server);
                 GlobalOptions.addProperty("selected.profile", Long.toString(profile.getProfileId()));
             } else {
-                logger.debug("More than one profiles exist. Showing selection dialog");
                 File f = new File("./servers");
                 List<String> servers = new LinkedList<String>();
                 for (File server : f.listFiles()) {
@@ -333,10 +284,9 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
                 jTree1.setCellRenderer(new ProfileTreeNodeRenderer());
                 jProfileDialog.setVisible(true);
             }
-            logger.debug("Profile selection finished");
+
             //check settings
             if (!DSWorkbenchSettingsDialog.getSingleton().checkSettings()) {
-                logger.debug("Settings check in settings dialog failed");
                 logger.info("Reading user settings returned error(s)");
                 DSWorkbenchSettingsDialog.getSingleton().setBlocking(true);
                 DSWorkbenchSettingsDialog.getSingleton().setVisible(true);
@@ -346,7 +296,6 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
         }
 
         // <editor-fold defaultstate="collapsed" desc=" Check for data updates ">
-        logger.debug("Checking for application updates");
         boolean checkForUpdates = false;
         try {
             checkForUpdates = Boolean.parseBoolean(GlobalOptions.getProperty("check.updates.on.startup"));
@@ -382,6 +331,7 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
             return false;
         }
         // </editor-fold>
+
         try {
             logger.debug("Checking for plugin updates");
             PluginManager.getSingleton().checkForUpdates();
@@ -441,20 +391,11 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
             }
         }
 
-        Appender a = null;
-
-        if (!Constants.DEBUG) {
-            a = new org.apache.log4j.RollingFileAppender();
-            ((org.apache.log4j.RollingFileAppender) a).setMaxFileSize("1MB");
-        } else {
-            a = new org.apache.log4j.ConsoleAppender();
-            ((org.apache.log4j.ConsoleAppender)a).setWriter(new PrintWriter(System.out));
-        }
+        RollingFileAppender a = new org.apache.log4j.RollingFileAppender();
         a.setLayout(new org.apache.log4j.PatternLayout("%d - %-5p - %-20c (%C [%L]) - %m%n"));
+        a.setMaxFileSize("1MB");
         try {
-            if (!Constants.DEBUG) {
-                ((org.apache.log4j.RollingFileAppender) a).setFile("./log/dsworkbench.log", true, true, 1024);
-            }
+            a.setFile("./log/dsworkbench.log", true, true, 1024);
             switch (mode) {
                 case 0: {
                     Logger.getRootLogger().setLevel(Level.INFO);
@@ -486,7 +427,6 @@ public class DSWorkbenchSplashScreen extends javax.swing.JFrame implements DataH
                 lnf = UIManager.getSystemLookAndFeelClassName();
             }
             if (lnf == null) {
-                //lnf = UIManager.getSystemLookAndFeelClassName();
                 UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
             } else {
                 UIManager.setLookAndFeel(lnf);

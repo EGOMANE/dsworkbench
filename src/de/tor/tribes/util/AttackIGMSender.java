@@ -35,7 +35,6 @@ public class AttackIGMSender {
             }
         }
 
-        //@TODO Switch to BB-Template editor for IGM attacks
         Enumeration<Tribe> tribeKeys = attacks.keys();
         String sUrl = ServerManager.getServerURL(GlobalOptions.getSelectedServer());
         String messageStart = "[i](Diese IGM wurde automatisch durch DS Workbench generiert)[/i]\n\n";

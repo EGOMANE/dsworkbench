@@ -32,7 +32,6 @@ import java.util.HashMap;
 
 /**
  * @author Torridity
- * @TODO Check alpha for mark on top for better visibility
  */
 public class MapLayerRenderer extends AbstractBufferedLayerRenderer {
 
@@ -42,7 +41,7 @@ public class MapLayerRenderer extends AbstractBufferedLayerRenderer {
     private Point mapPos = null;
     private boolean bMarkOnTop = false;
     private boolean shouldReset = true;
-    private boolean moved = true;
+    boolean moved = true;
 
     public void setMarkOnTop(boolean pValue) {
         bMarkOnTop = pValue;
@@ -117,7 +116,7 @@ public class MapLayerRenderer extends AbstractBufferedLayerRenderer {
             Graphics2D ig2d = (Graphics2D) img.getGraphics();
             if (isMarkOnTop()) {
                 Composite c = ig2d.getComposite();
-                ig2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .6f));
+                ig2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .3f));
                 ig2d.drawImage(renderMarkerRows(pSettings), 0, 0, null);
                 ig2d.setComposite(c);
             } else {
@@ -145,7 +144,7 @@ public class MapLayerRenderer extends AbstractBufferedLayerRenderer {
 
                 if (isMarkOnTop()) {
                     Composite c = ig2d.getComposite();
-                    ig2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .6f));
+                    ig2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .3f));
                     ig2d.drawImage(renderMarkerColumns(pSettings), 0, 0, null);
                     ig2d.setComposite(c);
                 } else {

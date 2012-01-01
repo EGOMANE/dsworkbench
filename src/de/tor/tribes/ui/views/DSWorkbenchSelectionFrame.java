@@ -33,7 +33,6 @@ import de.tor.tribes.util.GlobalOptions;
 import de.tor.tribes.util.JOptionPaneHelper;
 import de.tor.tribes.util.PluginManager;
 import de.tor.tribes.util.ServerSettings;
-import de.tor.tribes.util.UIHelper;
 import de.tor.tribes.util.VillageSelectionListener;
 import de.tor.tribes.util.bb.VillageListFormatter;
 import de.tor.tribes.util.html.SelectionHTMLExporter;
@@ -131,7 +130,7 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
         jSelectionPanel.add(centerPanel, BorderLayout.CENTER);
         centerPanel.setChildComponent(jSelectionTreePanel);
         buildMenu();
-        capabilityInfoPanel1.addActionListener(this);
+capabilityInfoPanel1.addActionListener(this);
         treeData = new LinkedList<Village>();
         jSelectionTree.setCellRenderer(new NodeCellRenderer());
 
@@ -371,7 +370,7 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
             @Override
             public void mouseReleased(MouseEvent e) {
                 try {
-                    filterByPoints(UIHelper.parseIntFromField(jCustomPointsField, 1500));
+                    filterByPoints(Integer.parseInt(jCustomPointsField.getText()));
                 } catch (NumberFormatException nfe) {
                     jCustomPointsField.setText(null);
                 }
@@ -418,20 +417,6 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
             }
         });
         miscPane.getContentPane().add(region);
-
-        JXButton substract = new JXButton(new ImageIcon(DSWorkbenchTagFrame.class.getResource("/res/ui/branch_remove.png")));
-
-        substract.setToolTipText("Abziehen aller Dörfer aus der Zwischenablage von der Liste der ausgewählten Dörfer");
-        substract.addMouseListener(new MouseAdapter() {
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                substractVillagesFromClipboard();
-            }
-        });
-        miscPane.getContentPane().add(substract);
-
-
         centerPanel.setupTaskPane(editPane, transferPane, miscPane);
     }
 
@@ -641,24 +626,6 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
         jRegionSelectDialog.pack();
         jRegionSelectDialog.setLocationRelativeTo(DSWorkbenchSelectionFrame.this);
         jRegionSelectDialog.setVisible(true);
-    }
-
-    private void substractVillagesFromClipboard() {
-        List<Village> villages = null;
-        try {
-            Transferable t = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
-            villages = PluginManager.getSingleton().executeVillageParser((String) t.getTransferData(DataFlavor.stringFlavor));
-        } catch (Exception e) {
-            logger.error("Failed to read village data from clipboard", e);
-            showError("Fehler beim Lesen aus der Zwischenablage");
-        }
-
-        if (villages == null || villages.isEmpty()) {
-            showInfo("Keine Dörfer in der Zwischenablage gefunden");
-        } else {
-            substractVillages(villages);
-            showSuccess(((villages.size() == 1) ? "Dorf" : villages.size() + " Dörfer") + " entfernt");
-        }
     }
 
     /** This method is called from within the constructor to
@@ -910,19 +877,13 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
                 for (Village v : copy) {
                     if (v.getTribe() == Barbarians.getSingleton() && a.equals(BarbarianAlly.getSingleton())) {
                         //remove barbarian ally member
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     } else if (v.getTribe() != Barbarians.getSingleton() && v.getTribe().getAlly() == null && a.equals(NoAlly.getSingleton())) {
                         //remove no-ally member
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     } else if (v.getTribe() != Barbarians.getSingleton() && v.getTribe().getAlly() != null && a.equals(v.getTribe().getAlly())) {
                         //remove if ally is equal
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     }
                 }
             } else if (o instanceof TribeNode) {
@@ -931,14 +892,10 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
                 for (Village v : copy) {
                     if (v.getTribe() == Barbarians.getSingleton() && t.equals(Barbarians.getSingleton())) {
                         //if village is barbarian village and selected tribe are barbs, remove village
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     } else if (v.getTribe() != Barbarians.getSingleton() && v.getTribe().equals(t)) {
                         //selected tribe are no barbs, so check tribes to be equal
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     }
                 }
             } else if (o instanceof TagNode) {
@@ -946,16 +903,12 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
                 Village[] copy = treeData.toArray(new Village[]{});
                 for (Village v : copy) {
                     if (v != null && t != null && t.tagsVillage(v.getId())) {
-                        if (!result.contains(v)) {
-                            result.add(v);
-                        }
+                        result.add(v);
                     }
                 }
             } else if (o instanceof VillageNode) {
                 Village v = ((VillageNode) o).getUserObject();
-                if (!result.contains(v)) {
-                    result.add(v);
-                }
+                result.add(v);
             } else if (o != null && o.equals(mRoot)) {
                 //remove all
                 result = new LinkedList<Village>(treeData);
@@ -1043,15 +996,6 @@ public class DSWorkbenchSelectionFrame extends AbstractDSWorkbenchFrame implemen
             }
         }
         Collections.sort(treeData, Village.ALLY_TRIBE_VILLAGE_COMPARATOR);
-        buildTree();
-    }
-
-    public void substractVillages(List<Village> pVillages) {
-        for (Village v : pVillages.toArray(new Village[]{})) {
-            if (v != null) {
-                treeData.remove(v);
-            }
-        }
         buildTree();
     }
 }

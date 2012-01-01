@@ -45,6 +45,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
+import de.tor.tribes.ui.renderer.map.MenuRenderer;
 import de.tor.tribes.util.DSCalculator;
 import de.tor.tribes.util.JOptionPaneHelper;
 import de.tor.tribes.util.MapShotListener;
@@ -78,11 +79,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -110,7 +109,8 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
             return;
         }
         if (e.getActionCommand().equals("Copy")) {
-            if (markedVillages != null && !markedVillages.isEmpty()) {
+            if (markedVillages
+                    != null && !markedVillages.isEmpty()) {
                 try {
                     StringBuilder b = new StringBuilder();
                     for (Village v : markedVillages) {
@@ -298,25 +298,23 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
 
         if (!shiftDown) {
             int cursor = getCurrentCursor();
-            boolean villagesHandled = false;
             if (cursor == ImageManager.CURSOR_TAG) {
                 //tag selected villages
                 if (markedVillages != null || !markedVillages.isEmpty()) {
                     VillageTagFrame.getSingleton().setLocationRelativeTo(this);
                     VillageTagFrame.getSingleton().showTagsFrame(markedVillages);
-                    villagesHandled = true;
                 }
             } else if (cursor == ImageManager.CURSOR_NOTE) {
                 //add note for selected villages
                 if (markedVillages != null || !markedVillages.isEmpty()) {
                     DSWorkbenchNotepad.getSingleton().addNoteForVillages(markedVillages);
-                    villagesHandled = true;
                 }
             }
-            if (villagesHandled) {
+            if (markedVillages != null) {
                 markedVillages.clear();
             }
         }
+
     }
 
     public List<Village> getMarkedVillages() {
@@ -389,7 +387,7 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
                 int tmpCursor = (spaceDown) ? ImageManager.CURSOR_DEFAULT : iCurrentCursor;
 
                 Village v = getVillageAtMousePos();
-                if (!shiftDown) {
+                if (!shiftDown && !MenuRenderer.getSingleton().isVisible()) {
                     //left click, no shift and no opened menu clears selected villages
                     markedVillages.clear();
                     //DSWorkbenchSelectionFrame.getSingleton().resetView();
@@ -405,6 +403,9 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
                         }
                     }
                     DSWorkbenchSelectionFrame.getSingleton().addVillages(markedVillages);
+                    return;
+                }
+                if (MenuRenderer.getSingleton().isVisible()) {
                     return;
                 }
 
@@ -678,6 +679,10 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
                     return;
                 }
 
+                if (MenuRenderer.getSingleton().isVisible()) {
+                    dragMove = false;
+                    return;
+                }
                 dragMove = false;
                 int unit = -1;
                 xDir = 0;
@@ -791,6 +796,7 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
             }
         });
 
+        addMouseListener(MenuRenderer.getSingleton());
         //</editor-fold>
 
 
@@ -799,6 +805,9 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
 
             @Override
             public void mouseDragged(MouseEvent e) {
+                if (MenuRenderer.getSingleton().isVisible()) {
+                    return;
+                }
 
                 boolean isAttack = false;
                 if (!spaceDown) {
@@ -912,8 +921,13 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
                 if (isOutside) {
                     mousePos = e.getLocationOnScreen();
                 }
+                if (MenuRenderer.getSingleton().isVisible()) {
+                    return;
+                }
             }
         });
+
+        addMouseMotionListener(MenuRenderer.getSingleton());
 
         //<editor-fold>
     }
@@ -1613,6 +1627,10 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
 
     /**Get village at current mouse position, null if there is no village*/
     public Village getVillageAtMousePos() {
+        if (MenuRenderer.getSingleton().isVisible()) {
+            return null;
+        }
+
         if (mVillagePositions == null) {
             return null;
         }
@@ -1640,6 +1658,10 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
     }
 
     public Village getVillageAtPoint(Point pPos) {
+        if (MenuRenderer.getSingleton().isVisible()) {
+            return null;
+        }
+
         if (mVillagePositions == null) {
             return null;
         }
@@ -1653,51 +1675,6 @@ public class MapPanel extends JPanel implements DragGestureListener, // For reco
                     return current;
                 }
             }
-        } catch (Exception e) {
-            //failed getting village (probably getting mousepos failed)
-        }
-
-        return null;
-    }
-
-    public List<Village> getVillagesInShape(Shape pShape) {
-        if (mVillagePositions == null) {
-            return null;
-        }
-        try {
-            List<Village> result = new ArrayList<Village>();
-            Iterator<Village> villages = mVillagePositions.keySet().iterator();
-
-            while (villages.hasNext()) {
-                Village currentVillage = villages.next();
-                Rectangle current = mVillagePositions.get(currentVillage);
-                if (pShape.intersects(current)) {
-                    result.add(currentVillage);
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            //failed getting village (probably getting mousepos failed)
-        }
-        return null;
-    }
-
-    public List<Village> getVillagesOnLine(Line2D.Double pShape) {
-        if (mVillagePositions == null) {
-            return null;
-        }
-        try {
-            List<Village> result = new ArrayList<Village>();
-            Iterator<Village> villages = mVillagePositions.keySet().iterator();
-
-            while (villages.hasNext()) {
-                Village currentVillage = villages.next();
-                Rectangle current = mVillagePositions.get(currentVillage);
-                if (current.intersectsLine(pShape)) {
-                    result.add(currentVillage);
-                }
-            }
-            return result;
         } catch (Exception e) {
             //failed getting village (probably getting mousepos failed)
         }

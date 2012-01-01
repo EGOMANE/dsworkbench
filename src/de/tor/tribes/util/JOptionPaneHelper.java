@@ -35,10 +35,6 @@ public class JOptionPaneHelper {
         return result;
     }
 
-    /**Results: YES_OPTION = Middle
-     * NO_OPTION = Left
-     * CANCEL_OPTION = Right
-     */
     public static int showQuestionThreeChoicesBox(Component pParent, String pMessage, String pTitle, String pLeftOption, String pMiddleOption, String pRightOption) {
         UIManager.put("OptionPane.noButtonText", pLeftOption);
         UIManager.put("OptionPane.yesButtonText", pMiddleOption);
