@@ -1,0 +1,1 @@
+This tool helps anyone who is playing the browser game "Die Stämme" to manage his/her accounts, to plan strategies and to get an overview about almost everything.
